@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ก้อนเมฆ · Word Cloud</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap" id="app" hidden>
+  <header class="topbar">
+    <div class="row" style="gap:28px; flex-wrap:wrap; justify-content:flex-start">
+      <a class="brand" href="index.html"><span class="dot"></span>Word Cloud</a>
+      <nav class="nav" aria-label="หน้า">
+        <span aria-current="page">ก้อนเมฆ</span>
+        <a id="navAnalysis" href="analysis.html">วิเคราะห์ <span id="pendBadge" class="badge" hidden>0</span></a>
+      </nav>
+    </div>
+    <div class="row" style="gap:12px; flex-wrap:wrap">
+      <div class="join">
+        <button id="qrThumb" class="qr-btn" aria-label="ขยาย QR code"></button>
+        <div class="join-info">
+          <span class="join-code" id="joinCode" aria-label="รหัสเข้าร่วม"></span>
+          <span class="join-url" id="joinUrl"></span>
+        </div>
+      </div>
+      <button id="btnPresent" class="btn" aria-pressed="false">โหมดนำเสนอ</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="main-col stick" aria-label="ก้อนเมฆ">
+      <div class="stack" style="gap:6px">
+        <label class="qlabel hide-present" for="q">คำถาม · พิมพ์ทับเพื่อเปลี่ยนได้</label>
+        <textarea id="q" class="qtext" rows="1" placeholder="พิมพ์คำถามของคุณที่นี่" maxlength="200"></textarea>
+        <div class="stats">
+          <span id="statTotal">0 คำตอบ</span><span aria-hidden="true">·</span><span id="statUnique">0 คำไม่ซ้ำ</span>
+          <span id="tagClosed" class="tag warn" hidden>ปิดรับคำตอบแล้ว</span>
+          <span id="tagPaused" class="tag warn" hidden></span>
+          <span id="tagHidden" class="tag" hidden>ผู้เข้าร่วมยังไม่เห็นผล</span>
+        </div>
+      </div>
+      <div class="stage-wrap"><div id="stage" class="stage" style="max-width:1100px; margin:0 auto" role="img" aria-label="ก้อนเมฆคำตอบ"></div></div>
+      <p id="emptyHint" class="note" style="text-align:center" hidden>ยังไม่มีคำตอบ ให้ผู้เข้าร่วมสแกน QR หรือกรอกรหัสด้านบน</p>
+      <div class="cloud-actions hide-present">
+        <button id="btnPause" class="btn" aria-pressed="false">หยุดแสดงชั่วคราว</button>
+        <button id="btnCsv" class="btn">ส่งออก CSV</button>
+        <button id="btnPng" class="btn">ส่งออกภาพ</button>
+        <button id="btnDelete" class="btn danger">ลบผล…</button>
+      </div>
+    </section>
+
+    <aside class="side" aria-label="ตั้งค่า">
+      <div class="sec">
+        <h2>รูปลักษณ์</h2>
+        <div class="stack">
+          <div class="row"><span>โทนสี</span><span class="note" id="toneName"></span></div>
+          <div class="swatches" id="tones" role="group" aria-label="โทนสี"></div>
+        </div>
+        <div class="row"><span>พื้นหลังก้อนเมฆ</span><div class="seg" id="bgSeg"></div></div>
+        <div class="row wrap-r"><span>ขนาดตัวอักษร</span><div class="seg" id="sizeSeg"></div></div>
+        <div class="row wrap-r"><span>จำนวนคำที่แสดง</span><div class="seg" id="maxSeg"></div></div>
+        <div class="row"><span>แสดงจำนวนครั้งข้างคำ</span><button id="togCounts" class="toggle" aria-label="แสดงจำนวนครั้งข้างคำ" aria-pressed="false"></button></div>
+      </div>
+
+      <div class="sec">
+        <h2>ควบคุม</h2>
+        <div class="row"><span>ซ่อนผลจากผู้เข้าร่วม</span><button id="togHide" class="toggle" aria-label="ซ่อนผลจากผู้เข้าร่วม" aria-pressed="false"></button></div>
+        <div class="row"><span>ปิดรับคำตอบ</span><button id="togClosed" class="toggle" aria-label="ปิดรับคำตอบ" aria-pressed="false"></button></div>
+        <div class="row wrap-r"><span>คำต่อคน</span><div class="seg" id="limitSeg"></div></div>
+      </div>
+
+      <div class="sec">
+        <h2>ข้อมูลจากผู้ตอบ</h2>
+        <p class="note" style="margin:0">เปิดเฉพาะหัวข้อที่อยากรู้ หัวข้อที่ปิดจะไม่ขึ้นให้ผู้ตอบเห็น ทุกหัวข้อไม่บังคับกรอก และไม่เก็บชื่อ เปลี่ยนหัวข้อก่อนเริ่มรับคำตอบจะดีที่สุด</p>
+        <div id="fieldsBox" class="stack" style="gap:18px"></div>
+        <p id="fieldNote" style="margin:0; font-size:14px"></p>
+      </div>
+
+      <div class="sec">
+        <h2>กลั่นกรอง</h2>
+        <p class="note" style="margin:0">กดที่คำเพื่อซ่อนจากก้อนเมฆ ข้อมูลยังเก็บไว้ในหน้าวิเคราะห์</p>
+        <div class="chips" id="modChips"></div>
+        <div id="removedWrap" class="stack" hidden>
+          <div class="label">ซ่อนอยู่</div>
+          <div class="chips" id="removedChips"></div>
+        </div>
+        <div class="stack" style="gap:6px">
+          <label class="label" for="blocked">คำต้องห้าม (คำตอบที่มีคำเหล่านี้จะไม่แสดง)</label>
+          <input id="blocked" class="input" type="text" placeholder="คั่นด้วยจุลภาค" maxlength="300">
+        </div>
+      </div>
+
+      <div class="sec">
+        <h2>รวมคำที่คล้ายกัน</h2>
+        <p class="note" style="margin:0" id="pendNote"></p>
+        <a class="btn" id="navAnalysis2" href="analysis.html">ไปหน้าวิเคราะห์และรวมคำ</a>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="boot" class="m-page center" aria-live="polite"><p class="note">กำลังโหลด…</p></div>
+
+<dialog id="qrDialog" class="qr-dialog" aria-label="QR code เข้าร่วม">
+  <div class="qr-big" id="qrBig"></div>
+  <p class="big-code" id="bigCode"></p>
+  <p class="big-url" id="bigUrl"></p>
+  <div class="row" style="justify-content:center; margin-top:12px">
+    <button class="btn" id="btnCopy">คัดลอกลิงก์</button>
+    <button class="btn primary" id="btnQrClose">ปิด</button>
+  </div>
+</dialog>
+
+<dialog id="delDialog" class="confirm" aria-labelledby="delTitle">
+  <h2 id="delTitle" style="margin:0 0 8px; font-size:22px">ลบผลการตอบ</h2>
+  <p class="note" style="margin-top:0">ลบแล้วกู้คืนไม่ได้ ควรส่งออกก่อน</p>
+  <div class="stack">
+    <div class="row" style="justify-content:flex-start; flex-wrap:wrap">
+      <button class="btn" id="dlgCsv">ส่งออก CSV</button>
+      <button class="btn" id="dlgPng">ส่งออกภาพ</button>
+    </div>
+    <label style="display:flex; gap:10px; align-items:center; min-height:44px"><input type="checkbox" id="dlgSkip" style="width:20px; height:20px"> ลบโดยไม่ส่งออก</label>
+    <p class="err" id="dlgErr" role="alert"></p>
+    <button class="btn danger block" id="dlgDelAns" disabled>ลบคำตอบทั้งหมด (เก็บกิจกรรมไว้)</button>
+    <button class="btn danger block" id="dlgDelAll" disabled>ลบกิจกรรมนี้ทั้งหมด</button>
+    <button class="btn ghost block" id="dlgCancel">ยกเลิก</button>
+  </div>
+</dialog>
+
+<script src="js/config.js"></script>
+<script src="vendor/firebase.bundle.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="js/lib.js"></script>
+<script src="js/db.js"></script>
+<script src="js/host.js"></script>
+</body>
+</html>

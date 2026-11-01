@@ -1,0 +1,15 @@
+{
+  "name": "word-cloud-classroom",
+  "version": "1.0.0",
+  "description": "Word cloud \u0e2a\u0e33\u0e2b\u0e23\u0e31\u0e1a\u0e01\u0e34\u0e08\u0e01\u0e23\u0e23\u0e21\u0e43\u0e19\u0e2b\u0e49\u0e2d\u0e07 (GitHub Pages + Firebase)",
+  "scripts": {
+    "build": "esbuild src/fb.js --bundle --minify --format=iife --outfile=vendor/firebase.bundle.js",
+    "serve": "python3 -m http.server 8765"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "firebase": "^13.1.0",
+    "qrcode-generator": "^2.0.4"
+  },
+  "private": true
+}

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Word Cloud</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap" style="max-width:760px">
+  <header class="topbar">
+    <span class="brand"><span class="dot"></span>Word Cloud</span>
+    <div class="row" style="gap:8px">
+      <a class="btn" href="join.html">เข้าร่วมด้วยรหัส</a>
+      <button id="btnOut" class="btn ghost" hidden>ออกจากระบบ</button>
+    </div>
+  </header>
+
+  <section id="vBoot" class="stack"><p class="note">กำลังโหลด…</p></section>
+
+  <section id="vSignin" class="stack" style="gap:16px" hidden>
+    <h1 style="margin:0; font-size:36px; letter-spacing:-0.5px">สำหรับผู้จัด</h1>
+    <p class="note" style="margin:0; font-size:16px">เข้าสู่ระบบด้วยบัญชี Google ของผู้จัดเพื่อสร้างและดูกิจกรรม ผู้เข้าร่วมไม่ต้องเข้าสู่ระบบ</p>
+    <div><button id="btnIn" class="btn primary" style="min-height:52px; font-size:16px">เข้าสู่ระบบด้วย Google</button></div>
+    <p id="inErr" class="err" role="alert"></p>
+  </section>
+
+  <section id="vHome" class="stack" style="gap:32px" hidden>
+    <div class="stack" style="gap:16px">
+      <h1 style="margin:0; font-size:36px; letter-spacing:-0.5px">สร้างกิจกรรมใหม่</h1>
+      <form id="newForm" class="stack">
+        <label for="newQ" class="label">คำถาม</label>
+        <textarea id="newQ" class="textarea" maxlength="200" placeholder="เช่น พูดถึงการทำงานเป็นทีม คุณนึกถึงคำไหน"></textarea>
+        <p id="newErr" class="err" role="alert"></p>
+        <div><button class="btn accent" style="min-height:52px; font-size:16px" type="submit" id="btnNew">เริ่มกิจกรรม</button></div>
+      </form>
+      <p class="note" style="margin:0">กดเริ่มแล้วระบบจะสร้างรหัสสั้น 4 ตัวและ QR code ให้ ตั้งค่าอื่นๆ แก้ได้ในหน้าถัดไป</p>
+    </div>
+
+    <div class="stack" style="gap:12px" id="listWrap" hidden>
+      <h2 style="margin:0; font-size:20px">กิจกรรมของฉัน</h2>
+      <p class="note" style="margin:0">กิจกรรมที่เก่ากว่า 48 ชั่วโมงจะถูกลบอัตโนมัติเมื่อเปิดหน้านี้ ควรส่งออกผลก่อน</p>
+      <div class="stack" id="list" style="gap:8px"></div>
+      <p id="cleanNote" class="note" style="margin:0" hidden></p>
+    </div>
+  </section>
+</div>
+
+<script src="js/config.js"></script>
+<script src="vendor/firebase.bundle.js"></script>
+<script src="js/lib.js"></script>
+<script src="js/db.js"></script>
+<script src="js/home.js"></script>
+</body>
+</html>

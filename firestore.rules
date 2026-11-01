@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ผู้จัด = บัญชี Google ที่ยืนยันอีเมลแล้ว และตรงกับอีเมลนี้เท่านั้น
+    // *** แก้ YOUR_EMAIL@gmail.com เป็นอีเมลของคุณ (ตัวพิมพ์เล็ก) ***
+    function isHost() {
+      return request.auth != null
+        && request.auth.token.email == 'mr.chitlo.pl@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+    // ผู้เข้าร่วม = ผู้ใช้แบบ Anonymous (หรือผู้จัดเอง)
+    function signedIn() { return request.auth != null; }
+
+    // รหัสสั้น -> รหัสกิจกรรม (ผู้เข้าร่วมอ่านได้ทีละรหัส ลิสต์ทั้งหมดไม่ได้)
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if isHost() && request.resource.data.keys().hasOnly(['sid', 'createdAt']);
+      allow update: if false;
+      allow delete: if isHost();
+    }
+
+    match /sessions/{sid} {
+      // ตั้งค่าส่วนตัวของกิจกรรม: เฉพาะผู้จัด
+      allow read, write: if isHost();
+
+      // สถานะสาธารณะ: ผู้เข้าร่วมอ่านได้ ไม่มีคำตอบดิบ
+      match /public/{doc} {
+        allow get: if signedIn();
+        allow list: if false;
+        allow write: if isHost();
+      }
+
+      // คำตอบ: ผู้เข้าร่วมเขียนได้อย่างเดียว (ห้ามอ่าน/แก้/ลบ) ผู้จัดอ่านและลบได้
+      match /answers/{aid} {
+        allow read, delete: if isHost();
+        allow update: if false;
+        allow create: if signedIn()
+          // รหัสเอกสารต้องเป็น <uid>_0 ถึง <uid>_4 -> หนึ่งคนส่งได้ไม่เกิน 5 คำ และปลอมเป็นคนอื่นไม่ได้
+          && aid.matches(request.auth.uid + '_[0-4]')
+          && get(/databases/$(database)/documents/sessions/$(sid)/public/state).data.status == 'open'
+          && request.resource.data.keys().hasOnly(['text', 'pid', 'fields', 'ts'])
+          && request.resource.data.pid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 30
+          && request.resource.data.fields is map
+          && request.resource.data.fields.size() <= 6
+          && request.resource.data.ts == request.time;
+      }
+    }
+
+    // อย่างอื่นปิดหมด
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

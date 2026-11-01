@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>วิเคราะห์ · Word Cloud</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap" id="app" hidden>
+  <header class="topbar">
+    <div class="row" style="gap:28px; flex-wrap:wrap; justify-content:flex-start">
+      <a class="brand" href="index.html"><span class="dot"></span>Word Cloud</a>
+      <nav class="nav" aria-label="หน้า">
+        <a id="navCloud" href="host.html">ก้อนเมฆ</a>
+        <span aria-current="page">วิเคราะห์</span>
+      </nav>
+    </div>
+    <div class="row" style="gap:8px">
+      <button id="btnCsv" class="btn primary">ส่งออก CSV</button>
+    </div>
+  </header>
+
+  <div class="row wrap-r" style="align-items:flex-end">
+    <div class="stack" style="gap:6px">
+      <h1 style="margin:0; font-size:clamp(28px,4vw,40px); letter-spacing:-0.5px">วิเคราะห์ผล</h1>
+      <div class="stats"><span id="qText"></span></div>
+    </div>
+    <div class="stack" style="align-items:flex-end; gap:10px">
+      <div class="row wrap-r" style="gap:8px 12px; justify-content:flex-end"><span class="note">ดูตาม</span><div class="seg" id="fieldSeg"></div></div>
+      <div class="row wrap-r" id="valueRow" style="gap:8px 12px; justify-content:flex-end" hidden><div class="seg" id="valueSeg"></div></div>
+      <div class="row wrap-r" id="minRow" style="gap:8px 12px; justify-content:flex-end" hidden><span class="note">ซ่อนกลุ่มที่มีน้อยกว่า (คำตอบ)</span><div class="seg" id="minSeg"></div></div>
+    </div>
+  </div>
+
+  <div id="suppressed" class="notice" role="status" hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5b2a0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none; margin-top:2px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+    <span id="suppressedText"></span>
+  </div>
+
+  <section class="kpis" aria-label="ตัวเลขสรุป">
+    <div class="kpi"><span class="k">คำตอบทั้งหมด</span><span class="v" id="kAnswers">0</span></div>
+    <div class="kpi"><span class="k">คำไม่ซ้ำ ก่อนรวม</span><span class="v" id="kRaw">0</span></div>
+    <div class="kpi"><span class="k">คำไม่ซ้ำ หลังรวม</span><span class="v accent" id="kMerged">0</span></div>
+    <div class="kpi"><span class="k">คำตอบที่ถูกรวม</span><span class="v" id="kShare">0%</span></div>
+  </section>
+
+  <div class="layout" style="justify-content:flex-start">
+    <div class="main-col" style="gap:40px; flex:999 1 560px">
+      <section class="stack" style="gap:12px">
+        <div class="row wrap-r"><h2 style="margin:0; font-size:20px">ก้อนเมฆหลังรวมคำ</h2><span class="note">พรีวิว ผลเดียวกับหน้าก้อนเมฆ</span></div>
+        <div class="preview"><div id="pv" class="stage" style="max-width:700px"></div></div>
+      </section>
+      <section class="stack" style="gap:16px">
+        <h2 style="margin:0; font-size:20px">คำที่พบบ่อยที่สุด</h2>
+        <div class="bars" id="bars"></div>
+      </section>
+      <section class="stack" style="gap:12px">
+        <div class="row wrap-r">
+          <h2 style="margin:0; font-size:20px">คำทั้งหมด</h2>
+          <div><label for="s" class="sr-only">ค้นหาคำ</label><input id="s" class="input" type="text" placeholder="ค้นหาคำ" style="width:220px; border-radius:999px"></div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="t">
+            <thead><tr><th>คำ</th><th class="num">จำนวนครั้ง</th><th class="num">สัดส่วน</th><th>รวมมาจาก</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <aside class="side" style="max-width:420px; flex:1 1 340px" aria-label="การรวมคำ">
+      <div class="sec" style="padding-top:0">
+        <h2>การรวมคำ</h2>
+        <div class="seg" id="modeSeg" style="display:flex"></div>
+        <p class="note" style="margin:0" id="modeNote"></p>
+        <div class="stack" style="gap:6px">
+          <label class="label" for="syn">คำเหมือน (เช่น ไว้ใจ=เชื่อใจ)</label>
+          <input id="syn" class="input" type="text" placeholder="a=b, c=d" maxlength="500">
+        </div>
+        <div class="stack" style="gap:6px">
+          <label class="label" for="prot">คำที่ห้ามรวม</label>
+          <input id="prot" class="input" type="text" placeholder="เช่น เมทานอล, เอทานอล" maxlength="300">
+          <span class="note">คั่นด้วยจุลภาค คู่ที่มีคำเหล่านี้จะไม่ถูกเสนอ</span>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="row"><h2>รอตัดสิน</h2><span class="note" id="pendCount">0 คู่</span></div>
+        <div class="stack" style="gap:8px" id="pending"></div>
+        <button class="btn accent" id="mergeAll" hidden>รวมทุกคู่ที่เสนอ</button>
+        <p class="note" id="noPending" style="margin:0">ไม่มีคู่คำที่รอตัดสิน</p>
+      </div>
+      <div class="sec">
+        <h2>บันทึกการรวม</h2>
+        <div class="stack" style="gap:2px" id="done"></div>
+        <p class="note" id="noDone" style="margin:0">ยังไม่มีการรวม</p>
+        <p class="note" style="margin:0">ข้อความดิบของผู้เข้าร่วมเก็บครบทุกแถว การรวมเป็นเพียงชั้นการแสดงผล เลิกรวมได้ทุกเมื่อ</p>
+      </div>
+    </aside>
+  </div>
+</div>
+<div id="boot" class="m-page center" aria-live="polite"><p class="note">กำลังโหลด…</p></div>
+
+<script src="js/config.js"></script>
+<script src="vendor/firebase.bundle.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="js/lib.js"></script>
+<script src="js/db.js"></script>
+<script src="js/analysis.js"></script>
+</body>
+</html>
