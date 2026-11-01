@@ -59,7 +59,23 @@
   };
   // ส่วนของหัวข้อที่เปิด สำหรับส่งให้ผู้ตอบ
   WC.publicFields = function (fields) {
-    return (fields || []).filter((f) => f.on).map((f) => ({ key: f.key, label: WC.fieldLabel(f), options: WC.parseList(f.options, 12, 20) }));
+    return (fields || []).filter((f) => f.on)
+      .map((f) => ({ key: f.key, label: WC.fieldLabel(f), options: WC.parseList(f.options, 12, 20) }))
+      .filter((f) => f.options.length > 0);
+  };
+  // หัวข้อที่เปิดอยู่ + ค่าที่เลือกดูได้ (ใช้กรองผลในหน้านำเสนอและหน้าวิเคราะห์)
+  WC.fieldDefs = function (settings) {
+    return (settings.fields || []).filter((f) => f.on).map((f) => ({
+      key: f.key, name: WC.fieldLabel(f),
+      values: WC.parseList(f.options, 12, 20).concat(['ไม่ได้ตอบ'])
+    })).filter((d) => d.values.length > 1);
+  };
+  WC.fieldFilter = function (def, vi) {
+    const val = def.values[vi];
+    return (a) => {
+      const v = a.fields && a.fields[def.key];
+      return val === 'ไม่ได้ตอบ' ? !v : v === val;
+    };
   };
 
   /* ---------- ทำความสะอาดคำ ---------- */

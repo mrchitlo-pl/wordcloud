@@ -16,6 +16,9 @@
   let lastW = 760, lastH = 440;
   let exported = false;
   let lastPublic = '';
+  let unlockedFields = false;                 // ปลดล็อกหัวข้อผู้ตอบแล้วหรือยัง
+  let viewField = null, viewValue = 0, lastBarSig = '', lockSig = '';
+  let curViewLabel = '', curViewTotal = 0;     // ผลที่กำลังแสดง (ใช้ตอนส่งออกภาพ)
   const dirty = {};         // คีย์ที่กำลังแก้ในหน้านี้ กันค่าที่ส่งกลับมาทับ
   const markDirty = (keys) => { keys.forEach((k) => { dirty[k] = Date.now(); }); };
   const isDirty = (k) => dirty[k] && Date.now() - dirty[k] < 3000;
@@ -28,7 +31,9 @@
     togCounts: $('#togCounts'), togHide: $('#togHide'), togClosed: $('#togClosed'), limitSeg: $('#limitSeg'),
     fieldsBox: $('#fieldsBox'), fieldNote: $('#fieldNote'),
     modChips: $('#modChips'), removedWrap: $('#removedWrap'), removedChips: $('#removedChips'), blocked: $('#blocked'),
-    pendBadge: $('#pendBadge'), pendNote: $('#pendNote')
+    pendBadge: $('#pendBadge'), pendNote: $('#pendNote'),
+    viewBar: $('#viewBar'), viewField: $('#viewField'), viewValRow: $('#viewValRow'), viewVal: $('#viewVal'),
+    tagView: $('#tagView'), suppressNote: $('#suppressNote'), fieldLock: $('#fieldLock')
   };
   const err = (e) => { console.error(e); alert('บันทึกไม่สำเร็จ: ' + (e && e.message ? e.message : e)); };
 
@@ -87,6 +92,8 @@
   /* ---------- วาด ---------- */
   function setIfIdle(el, value) { if (document.activeElement !== el && el.value !== value) el.value = value; }
 
+  const fieldsLocked = () => answers.length > 0 && !unlockedFields;
+
   function renderPanel() {
     WC.applyAccent(settings.tone);
     setIfIdle(els.q, settings.question || '');
@@ -109,7 +116,20 @@
       r.box.hidden = !f.on;
       if (r.name) setIfIdle(r.name, f.label || '');
       setIfIdle(r.opts, f.options || '');
+      const lk = fieldsLocked();
+      r.tog.disabled = lk;
+      if (r.name) r.name.disabled = lk;
+      r.opts.disabled = lk;
     });
+    const hasAns = answers.length > 0;
+    els.fieldLock.hidden = !hasAns;
+    if (hasAns) {
+      const lk = fieldsLocked();
+      $('#fieldLockText').textContent = lk
+        ? 'ล็อกหัวข้อแล้ว เพราะมีคำตอบเข้ามาแล้ว เพื่อให้ข้อมูลทุกคำตอบสม่ำเสมอ'
+        : 'ปลดล็อกอยู่ คำตอบที่ส่งมาแล้วจะไม่มีข้อมูลของหัวข้อที่เพิ่มใหม่';
+      $('#btnUnlock').textContent = lk ? 'ปลดล็อก…' : 'ล็อกกลับ';
+    }
     const on = settings.fields.filter((f) => f.on);
     els.fieldNote.textContent = on.length === 0
       ? 'ตอนนี้ผู้ตอบจะเห็นแค่ช่องใส่คำ'
@@ -120,7 +140,28 @@
 
   function renderCloud() {
     const live = compute(answers);
-    const view = frozen ? compute(frozen) : live;
+    const present = document.body.classList.contains('present');
+    const defs = WC.fieldDefs(settings);
+    if (viewField != null && !defs[viewField]) { viewField = null; viewValue = 0; }
+    const src = frozen || answers;
+    let filterFn = null, viewLabel = '';
+    if (present && viewField != null) {
+      filterFn = WC.fieldFilter(defs[viewField], viewValue);
+      viewLabel = defs[viewField].name + ': ' + defs[viewField].values[viewValue];
+    }
+    const filtered = filterFn ? src.filter(filterFn) : src;
+    const suppressed = !!filterFn && settings.minGroup > 0 && filtered.length < settings.minGroup;
+    const frozenAll = frozen ? compute(frozen) : null;
+    const view = suppressed
+      ? { ms: { eff: [], pairs: [], merges: {}, resolve: (x) => x }, total: 0 }
+      : (filterFn ? compute(filtered) : (frozen ? frozenAll : live));
+    renderViewBar(defs, present);
+    els.suppressNote.hidden = !suppressed;
+    if (suppressed) els.suppressNote.querySelector('span').textContent = 'กลุ่มนี้มี ' + filtered.length + ' คำตอบ น้อยกว่าเกณฑ์ ' + settings.minGroup + ' จึงซ่อนผลไว้ เพื่อกันไม่ให้ระบุได้ว่าใครตอบ (ปรับเกณฑ์ได้ในหน้าวิเคราะห์)';
+    els.tagView.hidden = !filterFn;
+    els.tagView.textContent = 'กำลังดู: ' + viewLabel;
+    curViewLabel = viewLabel;
+    curViewTotal = view.total;
     const maxN = WC.MAXES[settings.maxIdx][1];
     const shown = view.ms.eff.slice(0, maxN);
     const words = shown.map((e) => ({
@@ -144,7 +185,7 @@
     els.emptyHint.hidden = view.total > 0;
     if (frozen) {
       els.tagPaused.hidden = false;
-      els.tagPaused.textContent = 'หยุดแสดงชั่วคราว · มีใหม่ ' + Math.max(0, live.total - view.total);
+      els.tagPaused.textContent = 'หยุดแสดงชั่วคราว · มีใหม่ ' + Math.max(0, live.total - frozenAll.total);
     } else els.tagPaused.hidden = true;
 
     const pending = live.ms.pairs.filter((p) => p.status === 'pending').length;
@@ -170,6 +211,22 @@
       }));
     });
     pushPublic(live);
+  }
+
+  function renderViewBar(defs, present) {
+    const show = present && defs.length > 0;
+    els.viewBar.hidden = !show;
+    if (!show) return;
+    const sig = JSON.stringify([defs.map((d) => [d.name, d.values]), viewField, viewValue]);
+    if (sig === lastBarSig) return;
+    lastBarSig = sig;
+    WC.seg(els.viewField, ['ทั้งหมด'].concat(defs.map((d) => d.name)), viewField == null ? 0 : viewField + 1, (i) => {
+      viewField = i === 0 ? null : i - 1;
+      viewValue = 0;
+      renderCloud();
+    });
+    els.viewValRow.hidden = viewField == null;
+    if (viewField != null) WC.seg(els.viewVal, defs[viewField].values, viewValue, (i) => { viewValue = i; renderCloud(); });
   }
 
   function render() { renderPanel(); renderCloud(); }
@@ -220,6 +277,7 @@
     document.body.classList.toggle('present', on);
     btnPresent.setAttribute('aria-pressed', String(on));
     btnPresent.textContent = on ? 'ออกจากโหมดนำเสนอ' : 'โหมดนำเสนอ';
+    if (!on) { viewField = null; viewValue = 0; lastBarSig = ''; }
     setTimeout(() => { autosize(); renderCloud(); }, 60);
   });
   const btnPause = $('#btnPause');
@@ -237,10 +295,10 @@
     syncDelete();
   }
   async function exportPng() {
-    const live = compute(frozen || answers);
     const blob = await WC.cloudPng({
-      question: settings.question, placements: lastPlacements, W: lastW, H: lastH, dark: !!settings.dark,
-      pal: WC.palette(settings.tone, !!settings.dark), count: live.total
+      question: (settings.question || '') + (curViewLabel ? ' (' + curViewLabel + ')' : ''),
+      placements: lastPlacements, W: lastW, H: lastH, dark: !!settings.dark,
+      pal: WC.palette(settings.tone, !!settings.dark), count: curViewTotal
     });
     WC.download('wordcloud-' + sess.code + '-' + stamp() + '.png', blob);
     exported = true;
@@ -281,7 +339,20 @@
     if (els.boot) { els.boot.remove(); els.boot = null; els.app.hidden = false; renderJoin(); }
     render();
   }, (e) => { console.error(e); els.boot && (els.boot.textContent = 'โหลดกิจกรรมไม่ได้: ' + e.message); });
-  db.watchAnswers(sid, (list) => { answers = list; if (settings) renderCloudSoon(); }, (e) => console.error(e));
+  $('#btnUnlock').addEventListener('click', () => {
+    if (!unlockedFields) {
+      if (!confirm('ปลดล็อกหัวข้อ?\nคำตอบที่ส่งมาแล้วจะไม่มีข้อมูลของหัวข้อที่เพิ่มใหม่ และคนที่เปิดหน้ากรอกค้างไว้จะไม่เห็นหัวข้อใหม่')) return;
+      unlockedFields = true;
+    } else unlockedFields = false;
+    renderPanel();
+  });
+  db.watchAnswers(sid, (list) => {
+    answers = list;
+    if (!settings) return;
+    renderCloudSoon();
+    const sig = answers.length > 0 ? (unlockedFields ? 'u' : 'l') : 'n';
+    if (sig !== lockSig) { lockSig = sig; renderPanel(); }
+  }, (e) => console.error(e));
   if ('ResizeObserver' in window) {
     let t = null;
     ro = new ResizeObserver(() => { clearTimeout(t); t = setTimeout(() => { if (settings) { autosize(); renderCloud(); } }, 120); });

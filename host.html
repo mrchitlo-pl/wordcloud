@@ -40,7 +40,16 @@
           <span id="tagClosed" class="tag warn" hidden>ปิดรับคำตอบแล้ว</span>
           <span id="tagPaused" class="tag warn" hidden></span>
           <span id="tagHidden" class="tag" hidden>ผู้เข้าร่วมยังไม่เห็นผล</span>
+          <span id="tagView" class="tag warn" hidden></span>
         </div>
+      </div>
+      <div id="viewBar" class="stack" style="gap:8px" hidden>
+        <div class="row wrap-r" style="justify-content:flex-start; gap:8px 12px"><span class="note">ดูผลตาม</span><div class="seg" id="viewField"></div></div>
+        <div class="row wrap-r" id="viewValRow" style="justify-content:flex-start" hidden><div class="seg" id="viewVal"></div></div>
+      </div>
+      <div id="suppressNote" class="notice" role="status" hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5b2a0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none; margin-top:2px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        <span></span>
       </div>
       <div class="stage-wrap"><div id="stage" class="stage" style="max-width:1100px; margin:0 auto" role="img" aria-label="ก้อนเมฆคำตอบ"></div></div>
       <p id="emptyHint" class="note" style="text-align:center" hidden>ยังไม่มีคำตอบ ให้ผู้เข้าร่วมสแกน QR หรือกรอกรหัสด้านบน</p>
@@ -74,7 +83,11 @@
 
       <div class="sec">
         <h2>ข้อมูลจากผู้ตอบ</h2>
-        <p class="note" style="margin:0">เปิดเฉพาะหัวข้อที่อยากรู้ หัวข้อที่ปิดจะไม่ขึ้นให้ผู้ตอบเห็น ทุกหัวข้อไม่บังคับกรอก และไม่เก็บชื่อ เปลี่ยนหัวข้อก่อนเริ่มรับคำตอบจะดีที่สุด</p>
+        <p class="note" style="margin:0">หัวข้อตั้งได้ตั้งแต่หน้าสร้างกิจกรรม เมื่อมีคำตอบแรกเข้ามา หัวข้อจะล็อกเพื่อให้ข้อมูลสม่ำเสมอ ทุกหัวข้อไม่บังคับกรอก และไม่เก็บชื่อ</p>
+        <div id="fieldLock" class="notice" hidden role="status" style="flex-direction:column; align-items:flex-start; gap:10px; padding:14px 16px; font-size:14px">
+          <span id="fieldLockText"></span>
+          <button type="button" id="btnUnlock" class="btn" style="min-height:40px"></button>
+        </div>
         <div id="fieldsBox" class="stack" style="gap:18px"></div>
         <p id="fieldNote" style="margin:0; font-size:14px"></p>
       </div>

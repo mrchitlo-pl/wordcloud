@@ -147,3 +147,6 @@ table.t { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-
 
 .present .qtext { border-bottom-color: transparent; }
 .present .wrap { padding-top: 12px; }
+
+.present #viewBar .seg-btn { min-height: 48px; font-size: 18px; padding: 0 20px; }
+.present #viewBar .note { font-size: 16px; }

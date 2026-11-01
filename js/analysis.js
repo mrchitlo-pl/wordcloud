@@ -37,7 +37,7 @@
   function groupDefs() {
     const defs = [{ key: null, name: 'ไม่แยก', values: ['ทั้งหมด'] }];
     (settings.fields || []).filter((f) => f.on).forEach((f) => {
-      defs.push({ key: f.key, name: WC.fieldLabel(f), values: WC.parseList(f.options, 12, 20).concat(['ไม่ระบุ']) });
+      defs.push({ key: f.key, name: WC.fieldLabel(f), values: WC.parseList(f.options, 12, 20).concat(['ไม่ได้ตอบ']) });
     });
     return defs;
   }
@@ -66,7 +66,7 @@
       const val = def.values[valueIdx];
       filterFn = (a) => {
         const v = a.fields && a.fields[def.key];
-        return val === 'ไม่ระบุ' ? !v : v === val;
+        return val === 'ไม่ได้ตอบ' ? !v : v === val;
       };
     }
     const groupAnswers = filterFn ? answers.filter(filterFn) : answers;

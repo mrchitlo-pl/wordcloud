@@ -59,14 +59,53 @@
     });
   }
 
+  /* ---------- ตั้งค่าก่อนเริ่ม: คำต่อคน + หัวข้อข้อมูลผู้ตอบ ---------- */
+  let newLimit = 3;
+  const newFields = WC.DEFAULT_FIELDS.map((f) => Object.assign({}, f));
+  function renderLimit() {
+    WC.seg($('#newLimit'), ['1', '2', '3', '5'], [1, 2, 3, 5].indexOf(newLimit), (i) => { newLimit = [1, 2, 3, 5][i]; renderLimit(); });
+  }
+  const fRows = [];
+  function syncFields() {
+    newFields.forEach((f, i) => {
+      const r = fRows[i];
+      r.label.textContent = WC.fieldLabel(f);
+      WC.setToggle(r.tog, f.on);
+      r.tog.setAttribute('aria-label', 'เปิดหัวข้อ ' + WC.fieldLabel(f));
+      r.box.hidden = !f.on;
+    });
+  }
+  WC.DEFAULT_FIELDS.forEach((f, i) => {
+    const tog = WC.el('button', { type: 'button', class: 'toggle', 'aria-pressed': 'false' });
+    const name = WC.el('input', { type: 'text', class: 'input white', placeholder: 'ชื่อหัวข้อ เช่น ฝ่าย', 'aria-label': 'ชื่อหัวข้อ', maxlength: '30', value: '' });
+    const opts = WC.el('input', { type: 'text', class: 'input white', 'aria-label': 'ตัวเลือก', maxlength: '300', value: f.options });
+    const label = WC.el('span', { text: '' });
+    const box = WC.el('div', { class: 'fieldbox' }, [f.custom ? name : '', opts, WC.el('span', { class: 'note', text: 'ตัวเลือก คั่นด้วยจุลภาค' })].filter(Boolean));
+    tog.addEventListener('click', () => { newFields[i].on = !newFields[i].on; syncFields(); });
+    name.addEventListener('input', () => { newFields[i].label = name.value; syncFields(); });
+    opts.addEventListener('input', () => { newFields[i].options = opts.value; });
+    $('#newFields').appendChild(WC.el('div', { class: 'stack', style: 'gap:10px' }, [WC.el('div', { class: 'row' }, [label, tog]), box]));
+    fRows.push({ tog: tog, label: label, box: box });
+  });
+  renderLimit();
+  syncFields();
+
   $('#newForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const q = $('#newQ').value.trim();
     $('#newErr').textContent = '';
     if (!q) { $('#newErr').textContent = 'พิมพ์คำถามก่อน'; return; }
+    for (const f of newFields) {
+      if (!f.on) continue;
+      if (f.custom && f.label.trim() === '') { $('#newErr').textContent = 'ใส่ชื่อหัวข้อที่ตั้งเองก่อน หรือปิดหัวข้อนั้น'; return; }
+      if (WC.parseList(f.options, 12, 20).length === 0) { $('#newErr').textContent = 'หัวข้อ "' + WC.fieldLabel(f) + '" ยังไม่มีตัวเลือก'; return; }
+    }
     $('#btnNew').disabled = true;
     try {
-      const r = await db.createSession(WC.defaultSettings(q));
+      const settings = WC.defaultSettings(q);
+      settings.limit = newLimit;
+      settings.fields = newFields.map((f) => Object.assign({}, f));
+      const r = await db.createSession(settings);
       location.href = 'host.html?s=' + encodeURIComponent(r.sid);
     } catch (err) {
       console.error(err);
