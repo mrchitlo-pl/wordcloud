@@ -64,10 +64,10 @@
     const n = items.reduce((a, x) => a + x[1], 0);
     const changed = items.reduce((a, x) => a + (ms.resolve(x[0]) === x[0] ? 0 : x[1]), 0);
 
-    $('#kAnswers').textContent = fmt(n);
-    $('#kRaw').textContent = fmt(items.length);
-    $('#kMerged').textContent = fmt(ms.eff.length);
-    $('#kShare').textContent = n ? Math.round(changed / n * 100) + '%' : '0%';
+    WC.countTo($('#kAnswers'), n, fmt);
+    WC.countTo($('#kRaw'), items.length, fmt);
+    WC.countTo($('#kMerged'), ms.eff.length, fmt);
+    WC.countTo($('#kShare'), n ? Math.round(changed / n * 100) : 0, null, '%');
 
     // พรีวิวก้อนเมฆ
     const pv = $('#pv');

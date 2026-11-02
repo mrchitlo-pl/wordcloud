@@ -33,7 +33,7 @@
 
   /* ---------- หัวข้อข้อมูลผู้ตอบ ---------- */
   WC.MAX_FIELDS = 5;      // หัวข้อสูงสุดต่อกิจกรรม
-  WC.MAX_OPTIONS = 30;    // ตัวเลือกสูงสุดต่อหัวข้อ
+  WC.MAX_OPTIONS = 20;    // ตัวเลือกสูงสุดต่อหัวข้อ
   WC.MAX_OPT_LEN = 30;    // ความยาวตัวเลือก
   WC.MISSING = 'ไม่ได้ตอบ'; // ค่าแทนผู้ที่ไม่ได้เลือกหัวข้อนั้น
 
@@ -150,68 +150,190 @@
     });
   };
 
-  /* ---------- ตัวแก้หัวข้อ (ใช้ทั้งหน้าสร้างกิจกรรมและหน้าก้อนเมฆ) ---------- */
+  /* ---------- ตัวแก้ "ข้อมูลที่อยากถามผู้ตอบ" (ใช้ทั้งหน้าสร้างกิจกรรมและหน้าก้อนเมฆ) ---------- */
   // api: { get(): fields[], set(fields[]), locked(): boolean }
   WC.fieldEditor = function (container, api) {
     let sig = null;
-    const rows = [];
-    function build(fields, locked) {
-      container.replaceChildren();
-      rows.length = 0;
-      if (!locked) {
-        const pr = WC.el('div', { class: 'stack', style: 'gap:8px' }, [WC.el('div', { class: 'label', text: 'เริ่มจากชุดสำเร็จรูป (แก้ได้ทั้งหมดหลังเลือก)' })]);
-        const chips = WC.el('div', { class: 'chips', style: 'gap:8px' });
-        WC.PRESETS.forEach((p) => chips.appendChild(WC.el('button', {
-          type: 'button', class: 'chip', text: p.name,
+    let rows = [];
+    let previewBox = null;
+    let animKey = null;   // ข้อมูลที่เพิ่งเพิ่ม (ให้เคลื่อนไหวเฉพาะอันนี้)
+
+    // ตัวอย่างสิ่งที่ผู้ตอบเห็น
+    function renderPreview(fields) {
+      if (!previewBox) return;
+      previewBox.replaceChildren();
+      const pf = WC.publicFields(fields);
+      previewBox.hidden = pf.length === 0;
+      if (!pf.length) return;
+      previewBox.appendChild(WC.el('div', { class: 'label', text: 'ตัวอย่างที่ผู้ตอบเห็น' }));
+      const phone = WC.el('div', { class: 'pv-phone' });
+      phone.appendChild(WC.el('div', { class: 'pv-word', text: 'ช่องใส่คำของผู้ตอบ' }));
+      pf.forEach((f) => {
+        const box = WC.el('div', { class: 'pv-field' }, [WC.el('div', { class: 'pv-label', text: f.label })]);
+        if (f.options.length > 8) {
+          box.appendChild(WC.el('div', { class: 'pv-select', text: '— เลือก —  ▾  (' + f.options.length + ' ตัวเลือก)' }));
+        } else {
+          const chips = WC.el('div', { class: 'pv-chips' });
+          f.options.forEach((o) => chips.appendChild(WC.el('span', { class: 'pv-chip', text: o })));
+          box.appendChild(chips);
+        }
+        phone.appendChild(box);
+      });
+      previewBox.appendChild(phone);
+    }
+
+    function presetCards(hasFields) {
+      const wrap = WC.el('div', { class: 'stack', style: 'gap:10px' });
+      wrap.appendChild(WC.el('div', { class: 'label', text: hasFields ? 'เปลี่ยนไปใช้ชุดสำเร็จรูปอื่น' : 'เริ่มจากชุดสำเร็จรูป (เลือกแล้วแก้ต่อได้ทั้งหมด)' }));
+      const grid = WC.el('div', { class: 'preset-grid' });
+      WC.PRESETS.forEach((p) => {
+        grid.appendChild(WC.el('button', {
+          type: 'button', class: 'preset-card',
           onclick: () => {
-            if (api.get().length && !confirm('แทนที่หัวข้อที่ตั้งไว้ด้วยชุด "' + p.name + '"?')) return;
+            if (api.get().length && !confirm('แทนที่ข้อมูลที่ตั้งไว้ด้วยชุด "' + p.name + '"?')) return;
             api.set(WC.presetFields(p));
           }
-        })));
-        pr.appendChild(chips);
-        container.appendChild(pr);
+        }, [
+          WC.el('span', { class: 'pc-name', text: p.name }),
+          WC.el('span', { class: 'pc-desc', text: p.fields.length ? p.fields.map((f) => f.label).join(' · ') : 'ไม่ถามอะไรเพิ่ม' })
+        ]));
+      });
+      wrap.appendChild(grid);
+      return wrap;
+    }
+
+    function fieldCard(f, i, locked) {
+      const upd = (patch) => api.set(api.get().map((x, j) => (j === i ? Object.assign({}, x, patch) : x)));
+      const name = WC.el('input', { type: 'text', class: 'input white', placeholder: 'เช่น ตำแหน่ง', 'aria-label': 'ข้อมูลที่ ' + (i + 1) + ' ถามว่า', maxlength: '30', value: f.label });
+      name.addEventListener('input', () => upd({ label: name.value }));
+
+      const chipsWrap = WC.el('span', { class: 'tags' });
+      const input = WC.el('input', { type: 'text', class: 'taginput', placeholder: 'พิมพ์ตัวเลือก แล้วกด Enter', 'aria-label': 'เพิ่มตัวเลือกของข้อมูลที่ ' + (i + 1), autocomplete: 'off' });
+      const over = WC.el('div', { class: 'over', role: 'status' });
+      const box = WC.el('div', { class: 'tagbox' }, [chipsWrap, input]);
+      box.addEventListener('click', () => input.focus());
+      let lastOpts = null, overTimer = null;
+      let shown = null;   // ตัวเลือกที่แสดงอยู่ (เพื่อให้เฉพาะป้ายใหม่เคลื่อนไหว)
+      const cur = () => api.get()[i] ? parseOpts(api.get()[i].options) : [];
+      function renderTags() {
+        const opts = cur();
+        lastOpts = api.get()[i] ? api.get()[i].options : '';
+        chipsWrap.replaceChildren();
+        opts.forEach((o, k) => {
+          const chip = WC.el('span', { class: 'tag-chip' + (shown && shown.indexOf(o) < 0 ? ' tag-new' : '') }, [WC.el('span', { text: o })]);
+          if (!locked) chip.appendChild(WC.el('button', {
+            type: 'button', 'aria-label': 'ลบตัวเลือก ' + o, text: '×',
+            onclick: (e) => { e.stopPropagation(); upd({ options: cur().filter((_, j) => j !== k).join(', ') }); }
+          }));
+          chipsWrap.appendChild(chip);
+        });
+        shown = opts.slice();
       }
-      if (fields.length === 0) container.appendChild(WC.el('p', { class: 'note', style: 'margin:0', text: 'ยังไม่มีหัวข้อ ผู้ตอบจะเห็นแค่ช่องใส่คำ' }));
+      function addTokens(text) {
+        const tokens = String(text).split(/[,，、\n]/).map((x) => x.trim().slice(0, WC.MAX_OPT_LEN)).filter(Boolean);
+        if (!tokens.length) return;
+        const list = cur();
+        let overflow = 0;
+        tokens.forEach((t) => {
+          if (list.indexOf(t) >= 0) return;
+          if (list.length >= WC.MAX_OPTIONS) { overflow++; return; }
+          list.push(t);
+        });
+        upd({ options: list.join(', ') });
+        if (overflow) {
+          over.textContent = 'เกิน ' + WC.MAX_OPTIONS + ' ค่า ตัดทิ้ง ' + overflow + ' ค่า';
+          clearTimeout(overTimer);
+          overTimer = setTimeout(() => { over.textContent = ''; }, 4500);
+        }
+      }
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTokens(input.value); input.value = ''; }
+        else if (e.key === 'Backspace' && input.value === '') { const l = cur(); if (l.length) upd({ options: l.slice(0, -1).join(', ') }); }
+      });
+      input.addEventListener('input', () => { if (/[,，、\n]/.test(input.value)) { addTokens(input.value); input.value = ''; } });
+      input.addEventListener('blur', () => { if (input.value.trim()) { addTokens(input.value); input.value = ''; } });
+      renderTags();
+      if (locked) { name.disabled = true; input.disabled = true; input.placeholder = ''; }
+
+      const head = WC.el('div', { class: 'row' }, [WC.el('strong', { text: 'ข้อมูลที่ ' + (i + 1) })]);
+      if (!locked) head.appendChild(WC.el('button', {
+        type: 'button', class: 'btn ghost', style: 'min-height:36px; padding:0 8px; color:var(--danger)', text: 'ลบ',
+        'aria-label': 'ลบข้อมูลที่ ' + (i + 1),
+        onclick: () => api.set(api.get().filter((x, j) => j !== i))
+      }));
+      const card = WC.el('div', { class: 'fieldbox' + (f.key === animKey ? ' field-in' : '') }, [
+        head,
+        WC.el('div', { class: 'stack', style: 'gap:4px' }, [WC.el('label', { class: 'label', text: 'ถามผู้ตอบว่า' }), name]),
+        WC.el('div', { class: 'stack', style: 'gap:4px' }, [WC.el('label', { class: 'label', text: 'ตัวเลือกให้เลือก (พิมพ์แล้วกด Enter หรือจุลภาค วางรายการยาวๆ ได้)' }), box, over])
+      ]);
+      return { card: card, name: name, renderTags: renderTags, getLast: () => lastOpts, input: input };
+    }
+
+    function build(fields, locked) {
+      container.replaceChildren();
+      rows = [];
+      if (!fields.length && !locked) {
+        container.appendChild(WC.el('div', { class: 'empty-card' }, [
+          WC.el('strong', { text: 'ตอนนี้ผู้ตอบจะเห็นแค่ช่องใส่คำ' }),
+          WC.el('span', { class: 'note', text: 'ถ้าอยากรู้ว่าผู้ตอบมาจากกลุ่มไหน เช่น ระดับชั้น ตำแหน่ง หรือหน่วยงาน ให้เพิ่มข้อมูลที่อยากถาม แล้วดูผลแยกกลุ่มได้ในโหมดนำเสนอและหน้าวิเคราะห์ ผู้ตอบข้ามได้ ไม่เก็บชื่อ' })
+        ]));
+      }
+      if (!locked && !fields.length) container.appendChild(presetCards(false));
       fields.forEach((f, i) => {
-        const upd = (patch) => api.set(api.get().map((x, j) => (j === i ? Object.assign({}, x, patch) : x)));
-        const name = WC.el('input', { type: 'text', class: 'input white', placeholder: 'ชื่อหัวข้อ เช่น ตำแหน่ง', 'aria-label': 'ชื่อหัวข้อที่ ' + (i + 1), maxlength: '30', value: f.label });
-        const opts = WC.el('input', { type: 'text', class: 'input white', placeholder: 'ตัวเลือก คั่นด้วยจุลภาค', 'aria-label': 'ตัวเลือกของหัวข้อที่ ' + (i + 1), value: f.options });
-        name.addEventListener('input', () => upd({ label: name.value }));
-        opts.addEventListener('input', () => upd({ options: opts.value }));
-        if (locked) { name.disabled = true; opts.disabled = true; }
-        const kids = [name, opts, WC.el('span', { class: 'note', text: 'ตัวเลือกคั่นด้วยจุลภาค (สูงสุด ' + WC.MAX_OPTIONS + ' ข้อ)' })];
-        if (!locked) kids.push(WC.el('button', {
-          type: 'button', class: 'btn ghost', style: 'align-self:flex-start; min-height:40px; padding:0 8px; color:var(--danger)', text: 'ลบหัวข้อนี้',
-          'aria-label': 'ลบหัวข้อที่ ' + (i + 1),
-          onclick: () => api.set(api.get().filter((x, j) => j !== i))
-        }));
-        container.appendChild(WC.el('div', { class: 'fieldbox' }, kids));
-        rows.push({ name: name, opts: opts });
+        const r = fieldCard(f, i, locked);
+        rows.push(r);
+        container.appendChild(r.card);
       });
       if (!locked) {
         const add = WC.el('button', {
-          type: 'button', class: 'btn', text: '+ เพิ่มหัวข้อ', style: 'align-self:flex-start',
+          type: 'button', class: 'btn', style: 'align-self:flex-start',
+          text: fields.length ? '+ เพิ่มข้อมูลที่อยากถาม' : '+ เพิ่มข้อมูลที่อยากถามเอง',
           onclick: () => {
             const cur = api.get();
-            api.set(cur.concat([{ key: WC.newKey(cur.map((x) => x.key)), label: '', options: '' }]));
+            animKey = WC.newKey(cur.map((x) => x.key));
+            api.set(cur.concat([{ key: animKey, label: '', options: '' }]));
           }
         });
-        if (fields.length >= WC.MAX_FIELDS) { add.disabled = true; add.textContent = 'ครบ ' + WC.MAX_FIELDS + ' หัวข้อแล้ว'; }
+        if (fields.length >= WC.MAX_FIELDS) { add.disabled = true; add.textContent = 'ครบ ' + WC.MAX_FIELDS + ' ข้อมูลแล้ว'; }
         container.appendChild(add);
+        if (fields.length) container.appendChild(WC.el('details', { class: 'preset-more' }, [WC.el('summary', { text: 'เปลี่ยนไปใช้ชุดสำเร็จรูป' }), presetCards(true)]));
       }
+      previewBox = WC.el('div', { class: 'pv-box', hidden: true });
+      container.appendChild(previewBox);
     }
+
     return {
       sync: function () {
         const fields = api.get();
         const locked = api.locked();
         const s = fields.map((f) => f.key).join(',') + '|' + locked;
-        if (s !== sig) { sig = s; build(fields, locked); return; }
-        rows.forEach((r, i) => {
+        if (s !== sig) { sig = s; build(fields, locked); }
+        else rows.forEach((r, i) => {
+          if (!fields[i]) return;
           if (document.activeElement !== r.name && r.name.value !== fields[i].label) r.name.value = fields[i].label;
-          if (document.activeElement !== r.opts && r.opts.value !== fields[i].options) r.opts.value = fields[i].options;
+          if (r.getLast() !== fields[i].options) r.renderTags();
         });
+        renderPreview(fields);
       }
     };
+  };
+
+  /* ---------- ตัวเลขนับขึ้นนุ่มนวล ---------- */
+  WC.countTo = function (el, to, fmt, suffix) {
+    fmt = fmt || ((n) => String(n));
+    suffix = suffix || '';
+    const from = el._v == null ? to : el._v;
+    el._v = to;
+    if (from === to || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = fmt(to) + suffix; return; }
+    const t0 = performance.now(), dur = 380;
+    cancelAnimationFrame(el._raf);
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmt(Math.round(from + (to - from) * e)) + suffix;
+      if (k < 1) el._raf = requestAnimationFrame(step);
+    };
+    el._raf = requestAnimationFrame(step);
   };
 
   /* ---------- ทำความสะอาดคำ ---------- */
@@ -392,19 +514,33 @@
     words.forEach((w, i) => {
       const p = pos[i];
       let el = spans.get(w.key);
+      let fresh = false;
       if (!el) {
         el = document.createElement('span');
         el.className = 'cw';
-        el.style.left = W / 2 + 'px';
-        el.style.top = H / 2 + 'px';
-        el.style.opacity = '0';
         container.appendChild(el);
         spans.set(w.key, el);
+        fresh = true;
       }
+      if (el._gone) { clearTimeout(el._rm); el._gone = false; }
       seen.add(w.key);
       if (el.textContent !== w.label) el.textContent = w.label;
       if (!p) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; return; }
       const color = p.ratio > 0.5 ? pal.a : p.ratio > 0.25 ? pal.m : pal.l;
+      if (fresh) {
+        // คำใหม่: วางที่ตำแหน่งจริงก่อน แล้วค่อยๆ โผล่ (ไม่พุ่งมาจากกลางจอ)
+        el.style.transition = 'none';
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0.86)';
+        el.style.left = Math.round(p.x) + 'px';
+        el.style.top = Math.round(p.y) + 'px';
+        el.style.width = p.w + 'px';
+        el.style.fontSize = p.size + 'px';
+        void el.offsetWidth;
+        el.style.transition = '';
+        el.style.transitionDelay = Math.min(i * 14, 500) + 'ms';
+        setTimeout(() => { el.style.transitionDelay = ''; }, 1100);
+      }
       el.style.left = Math.round(p.x) + 'px';
       el.style.top = Math.round(p.y) + 'px';
       el.style.width = p.w + 'px';
@@ -415,8 +551,17 @@
       el.style.textDecorationThickness = '2px';
       el.style.textUnderlineOffset = '4px';
       el.style.opacity = '1';
+      el.style.transform = 'scale(1)';
+      el.style.pointerEvents = '';
     });
-    spans.forEach((el, k) => { if (!seen.has(k)) { el.remove(); spans.delete(k); } });
+    spans.forEach((el, k) => {
+      if (seen.has(k) || el._gone) return;
+      el._gone = true;
+      el.style.opacity = '0';
+      el.style.transform = 'scale(0.86)';
+      el.style.pointerEvents = 'none';
+      el._rm = setTimeout(() => { el.remove(); if (spans.get(k) === el) spans.delete(k); }, 650);
+    });
     return pos.map((p, i) => (p ? Object.assign({ label: words[i].label, mine: !!words[i].mine }, p) : null));
   };
 
@@ -561,4 +706,17 @@
     const t = WC.TONES[toneIdx] || WC.TONES[0];
     document.documentElement.style.setProperty('--accent', t.accent);
   };
+
+  /* ---------- เปลี่ยนหน้าแบบนุ่มนวล: จางออกก่อนไปหน้าใหม่ ---------- */
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('a[href]');
+    if (!a || a.target || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (a.origin !== location.origin) return;
+    if (a.pathname === location.pathname && a.search === location.search) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    e.preventDefault();
+    document.body.classList.add('leaving');
+    setTimeout(() => { location.href = a.href; }, 170);
+  });
+  window.addEventListener('pageshow', () => document.body.classList.remove('leaving'));
 })();

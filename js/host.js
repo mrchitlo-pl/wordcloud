@@ -6,6 +6,8 @@
   const sid = WC.qs('s');
   const back = () => { location.replace('index.html'); };
   if (!sid || !db.user || !db.user.isHost) return back();
+  // ลิงก์ไปหน้าวิเคราะห์ต้องพ่วงรหัสกิจกรรมไปด้วย
+  ['#navAnalysis', '#navAnalysis2'].forEach((q) => { $(q).href = 'analysis.html?s=' + encodeURIComponent(sid); });
 
   let sess = null;          // เอกสารกิจกรรม
   let settings = null;      // ตั้งค่า (สำเนาในหน้านี้)
@@ -161,8 +163,8 @@
     els.stage.style.height = H + 'px';
     lastW = W; lastH = H;
     lastPlacements = WC.renderCloud(els.stage, words, WC.palette(settings.tone, dark), { W: W, H: H, scale: WC.SIZES[settings.sizeIdx][1] });
-    els.statTotal.textContent = view.total + ' คำตอบ';
-    els.statUnique.textContent = view.ms.eff.length + ' คำไม่ซ้ำ';
+    WC.countTo(els.statTotal, view.total, null, ' คำตอบ');
+    WC.countTo(els.statUnique, view.ms.eff.length, null, ' คำไม่ซ้ำ');
     els.emptyHint.hidden = view.total > 0;
     if (frozen) {
       els.tagPaused.hidden = false;
@@ -173,6 +175,7 @@
     els.pendBadge.hidden = pending === 0;
     els.pendBadge.textContent = pending;
     els.pendNote.textContent = pending > 0 ? 'มี ' + pending + ' คู่คำที่น่าจะรวมกัน รอตัดสิน' : 'ไม่มีคู่คำที่รอตัดสิน';
+    renderPairs(live);
 
     // ปุ่มกลั่นกรอง
     els.modChips.replaceChildren();
@@ -198,6 +201,7 @@
   function renderViewBar(defs, present, label) {
     const show = present && defs.length > 0;
     els.viewBar.hidden = !show;
+    document.querySelector('.main-col').classList.toggle('with-filter', show);
     if (!show) return;
     const n = WC.selCount(viewSel);
     $('#btnFilter').textContent = 'ตัวกรอง' + (n ? ' (' + n + ')' : '') + (viewOpen ? ' ▴' : ' ▾');
@@ -205,15 +209,45 @@
     $('#btnClearView').hidden = n === 0;
     els.viewPanel.hidden = !viewOpen;
     if (!viewOpen) { lastBarSig = ''; return; }
+    // ให้แผงตัวกรองเลื่อนภายในตัวเอง ไม่ดันหน้าให้ยาวเกินจอ
+    els.viewPanel.style.maxHeight = Math.max(200, window.innerHeight - (els.viewPanel.getBoundingClientRect().top + window.scrollY) - 20) + 'px';
     const sig = JSON.stringify([defs.map((d) => [d.key, d.name, d.values]), viewSel]);
     if (sig === lastBarSig) return;
     lastBarSig = sig;
     WC.filterPanel(els.viewPanel, defs, viewSel, () => { renderCloud(); });
-    els.viewPanel.appendChild(WC.el('button', {
-      type: 'button', class: 'btn primary', style: 'align-self:flex-start', text: 'เสร็จ',
-      onclick: () => { viewOpen = false; lastBarSig = ''; renderCloud(); }
-    }));
   }
+
+  // รายการคู่คำรอตัดสิน (กด รวม / ไม่รวม ได้จากแผงนี้ ใช้ได้ในลิ้นชักโหมดนำเสนอด้วย)
+  let lastPairSig = '';
+  function decide(key, v) { save({ decisions: Object.assign({}, settings.decisions, { [key]: v }) }); }
+  function renderPairs(live) {
+    const pend = live.ms.pairs.filter((p) => p.status === 'pending');
+    $('#pairAll').hidden = pend.length === 0;
+    const sig = JSON.stringify(pend.map((p) => [p.key, p.fromN, p.toN]));
+    if (sig === lastPairSig) return;
+    lastPairSig = sig;
+    const box = $('#pairList');
+    box.replaceChildren();
+    pend.slice(0, 30).forEach((p) => {
+      box.appendChild(WC.el('div', { class: 'pair' }, [
+        WC.el('div', { class: 'row wrap-r', style: 'align-items:baseline; gap:4px 8px' }, [
+          WC.el('span', { text: p.from + ' → ' + p.to, style: 'font-weight:500' }),
+          WC.el('span', { class: 'note', text: p.fromN + ' + ' + p.toN + ' ครั้ง', style: 'font-size:13px' })
+        ]),
+        WC.el('div', { class: 'note', text: p.reason, style: 'font-size:13px; font-weight:500' }),
+        WC.el('div', { class: 'row' }, [
+          WC.el('button', { type: 'button', class: 'btn accent', style: 'flex:1', text: 'รวม', 'aria-label': 'รวม ' + p.from + ' เข้ากับ ' + p.to, onclick: () => decide(p.key, 'merge') }),
+          WC.el('button', { type: 'button', class: 'btn', style: 'flex:1', text: 'ไม่รวม', 'aria-label': 'ไม่รวม ' + p.from + ' กับ ' + p.to, onclick: () => decide(p.key, 'skip') })
+        ])
+      ]));
+    });
+  }
+  $('#pairAll').addEventListener('click', () => {
+    const live = compute(answers);
+    const d = Object.assign({}, settings.decisions);
+    live.ms.pairs.filter((p) => p.status === 'pending').forEach((p) => { d[p.key] = 'merge'; });
+    save({ decisions: d });
+  });
 
   function render() { renderPanel(); renderCloud(); }
   // จำกัดความถี่การจัดวางใหม่ เมื่อมีคำตอบเข้ามาถี่ๆ
@@ -257,13 +291,30 @@
   });
 
   /* ---------- นำเสนอ / หยุด / ส่งออก ---------- */
+  /* ---------- ลิ้นชักตั้งค่าในโหมดนำเสนอ ---------- */
+  function syncInert() {
+    const present = document.body.classList.contains('present');
+    const open = document.body.classList.contains('drawer-open');
+    const d = $('#drawer');
+    if (present && !open) d.setAttribute('inert', ''); else d.removeAttribute('inert');
+  }
+  function setDrawer(open) {
+    document.body.classList.toggle('drawer-open', open);
+    $('#btnGear').setAttribute('aria-expanded', String(open));
+    syncInert();
+    if (open) setTimeout(() => $('#btnDrawerClose').focus(), 340);
+  }
+  $('#btnGear').addEventListener('click', () => setDrawer(!document.body.classList.contains('drawer-open')));
+  $('#btnDrawerClose').addEventListener('click', () => { setDrawer(false); $('#btnGear').focus(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('drawer-open')) { setDrawer(false); $('#btnGear').focus(); } });
   const btnPresent = $('#btnPresent');
   btnPresent.addEventListener('click', () => {
     const on = !document.body.classList.contains('present');
     document.body.classList.toggle('present', on);
     btnPresent.setAttribute('aria-pressed', String(on));
     btnPresent.textContent = on ? 'ออกจากโหมดนำเสนอ' : 'โหมดนำเสนอ';
-    if (!on) { Object.keys(viewSel).forEach((k) => delete viewSel[k]); viewOpen = false; lastBarSig = ''; }
+    if (!on) { Object.keys(viewSel).forEach((k) => delete viewSel[k]); viewOpen = false; lastBarSig = ''; } else viewOpen = true;
+    setDrawer(false);
     setTimeout(() => { autosize(); renderCloud(); }, 60);
   });
   $('#btnFilter').addEventListener('click', () => { viewOpen = !viewOpen; lastBarSig = ''; renderCloud(); setTimeout(renderCloud, 80); });

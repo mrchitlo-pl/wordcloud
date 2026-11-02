@@ -43,7 +43,7 @@ a { color: var(--accent); }
 .seg-btn[aria-pressed="true"] { background: var(--ink); color: #fff; }
 
 .toggle { position: relative; width: 52px; height: 30px; border-radius: 15px; border: 0; padding: 0; background: #8a9aa2; flex: none; }
-.toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 12px; background: #fff; transition: left .15s; }
+.toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 12px; background: #fff; transition: left .2s cubic-bezier(.3,.9,.4,1); }
 .toggle[aria-pressed="true"] { background: var(--accent); }
 .toggle[aria-pressed="true"]::after { left: 25px; }
 
@@ -83,7 +83,7 @@ a { color: var(--accent); }
 .stage-wrap { display: flex; justify-content: center; }
 .stage { position: relative; width: 100%; border-radius: 28px; }
 .stage.dark { background: #0a0f0d; }
-.cw { position: absolute; white-space: nowrap; text-align: center; line-height: 1.3; letter-spacing: -0.3px; transition: left .7s ease, top .7s ease, font-size .7s ease, opacity .5s ease, color .5s ease; }
+.cw { position: absolute; white-space: nowrap; text-align: center; line-height: 1.3; letter-spacing: -0.3px; transition: left .75s cubic-bezier(.2,.8,.2,1), top .75s cubic-bezier(.2,.8,.2,1), font-size .75s cubic-bezier(.2,.8,.2,1), opacity .5s ease, transform .5s cubic-bezier(.2,.8,.2,1), color .5s ease; }
 .cloud-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
 /* ข้อมูลเข้าร่วม (รหัส + QR) */
@@ -96,7 +96,7 @@ a { color: var(--accent); }
 .present .qr-btn { width: 120px; height: 120px; }
 .present .join-code { font-size: 52px; }
 .present .join-url { font-size: 18px; }
-.present .side, .present .nav, .present .hide-present { display: none !important; }
+.present .nav, .present .hide-present { display: none !important; }
 .present .qtext { font-size: clamp(28px, 4vw, 48px); }
 
 dialog.qr-dialog { border: 0; border-radius: 28px; padding: 28px; max-width: min(92vw, 720px); width: 100%; text-align: center; max-height: 96vh; overflow: auto; }
@@ -148,14 +148,84 @@ table.t { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-
 .present .qtext { border-bottom-color: transparent; }
 .present .wrap { padding-top: 12px; }
 
-.present #viewBar .seg-btn { min-height: 48px; font-size: 18px; padding: 0 20px; }
-.present #viewBar .note { font-size: 16px; }
 
 .fchip { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #c5d0d5; background: #fff; font-size: 15px; font-weight: 500; }
 .fchip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
-.present #viewBar .fchip { min-height: 52px; font-size: 18px; padding: 0 22px; }
-.present #viewBar .label { font-size: 16px; }
 .m-select { width: 100%; min-height: 52px; border: 0; border-radius: 14px; background: var(--soft); padding: 0 16px; font-size: 18px; }
 
-#viewBar { position: relative; }
-#viewPanel { position: absolute; top: 100%; left: 0; margin-top: 8px; width: min(780px, 100%); max-height: 62vh; overflow: auto; z-index: 5; background: #fff; border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(10, 15, 13, .2); }
+
+/* ---------- แถบตัวกรองแบบกะทัดรัด (โหมดนำเสนอ) ---------- */
+#viewPanel { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 8px 28px; padding: 12px 14px; background: var(--soft); border-radius: 16px; width: 100%; }
+#viewPanel .stack { gap: 4px; }
+#viewPanel .label { font-size: 12px; }
+#viewPanel .chips { gap: 5px; }
+#viewPanel .fchip { min-height: 30px; padding: 0 11px; font-size: 13px; }
+#btnFilter { min-height: 36px; padding: 0 16px; font-size: 14px; }
+#btnClearView { min-height: 36px; font-size: 14px; }
+
+/* ---------- ลิ้นชักตั้งค่าในโหมดนำเสนอ ---------- */
+.present .side { display: flex !important; position: fixed; z-index: 30; top: 0; right: 0; bottom: 0; width: min(420px, 92vw); max-width: none; background: #fff; padding: 16px 22px 40px; overflow-y: auto; box-shadow: -12px 0 40px rgba(10, 15, 13, .22); transform: translateX(105%); transition: transform .34s cubic-bezier(.2, .8, .2, 1); flex: none; }
+.present.drawer-open .side { transform: translateX(0); }
+.drawer-head { display: none; }
+.present .drawer-head { display: flex; align-items: center; justify-content: space-between; position: sticky; top: -16px; background: #fff; padding: 12px 0; z-index: 2; font-weight: 700; font-size: 18px; border-bottom: 1px solid var(--line); }
+.gear { display: none; }
+.present .gear { display: inline-flex; position: fixed; right: 18px; bottom: 18px; z-index: 40; width: 48px; height: 48px; border-radius: 24px; border: 1px solid #c5d0d5; background: #fff; align-items: center; justify-content: center; opacity: .3; transition: opacity .2s, right .34s cubic-bezier(.2, .8, .2, 1); box-shadow: 0 2px 10px rgba(10, 15, 13, .12); }
+.present .gear:hover, .present .gear:focus-visible, .present.drawer-open .gear { opacity: 1; }
+.present.drawer-open .gear { right: calc(min(420px, 92vw) + 18px); }
+
+/* ---------- ข้อมูลที่อยากถามผู้ตอบ ---------- */
+.preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.preset-card { text-align: left; border: 1px solid #c5d0d5; background: #fff; border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-height: 64px; }
+.preset-card:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.pc-name { font-weight: 700; font-size: 15px; }
+.pc-desc { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.empty-card { background: var(--soft); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+.tagbox { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: #fff; border-radius: 12px; padding: 8px 10px; min-height: 48px; cursor: text; }
+.tagbox:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+.tags { display: contents; }
+.tag-chip { display: inline-flex; align-items: center; gap: 2px; background: #e3f4ec; color: #065f46; border-radius: 999px; padding: 0 4px 0 12px; min-height: 32px; font-size: 14px; font-weight: 500; }
+.tag-chip.tag-new { animation: fieldIn .2s ease backwards; }
+.tag-chip button { border: 0; background: transparent; width: 28px; height: 28px; border-radius: 14px; font-size: 18px; line-height: 1; color: #065f46; }
+.tag-chip button:hover { background: rgba(6, 95, 70, .12); }
+.taginput { flex: 1; min-width: 150px; border: 0; background: transparent; font-size: 15px; min-height: 32px; outline: none; }
+.over { color: var(--danger); font-size: 13px; font-weight: 500; }
+.over:empty { display: none; }
+.pv-box { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.pv-phone { background: var(--soft); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.pv-word { background: #fff; border-radius: 12px; padding: 10px 14px; color: var(--muted); font-size: 14px; }
+.pv-label { font-weight: 500; font-size: 14px; margin-bottom: 6px; }
+.pv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pv-chip { background: #fff; border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.pv-select { background: #fff; border-radius: 10px; padding: 8px 12px; font-size: 13px; color: var(--muted); }
+details.preset-more summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; color: var(--muted); font-size: 14px; }
+details.preset-more[open] summary { margin-bottom: 8px; }
+
+/* ---------- การเคลื่อนไหวแบบแอปมือถือ ---------- */
+.btn, .chip, .m-chip, .seg-btn, .fchip, .preset-card, .swatch, .toggle { transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .12s ease; }
+.btn:active, .chip:active, .m-chip:active, .seg-btn:active, .fchip:active, .preset-card:active, .swatch:active, .qr-btn:active { transform: scale(.96); }
+@keyframes pageIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes screenIn { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: none; } }
+@keyframes fieldIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes dlgIn { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+.wrap, .m-page { animation: pageIn .38s cubic-bezier(.2, .8, .2, 1) backwards; }
+.m-page > section, .wrap > section { animation: screenIn .34s cubic-bezier(.2, .8, .2, 1) backwards; }
+.field-in { animation: fieldIn .26s ease backwards; }
+.pair, .kpi { animation: fieldIn .3s ease backwards; }
+dialog[open] { animation: dlgIn .26s cubic-bezier(.2, .8, .2, 1); }
+dialog[open]::backdrop { animation: fadeIn .26s ease; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+/* โหมดนำเสนอ: ตัวกรองอยู่คอลัมน์ซ้ายแนวตั้ง ก้อนเมฆใช้พื้นที่ขวาเต็มความสูง */
+.present .main-col { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 28px; row-gap: 12px; align-items: start; }
+.present .main-col > .stack:first-child { grid-column: 1 / -1; }
+.present .main-col.with-filter { grid-template-columns: 300px minmax(0, 1fr); }
+.present .main-col.with-filter > #viewBar { grid-column: 1; grid-row: 2 / span 4; }
+.present .main-col.with-filter > .stage-wrap, .present .main-col.with-filter > #suppressNote, .present .main-col.with-filter > #emptyHint { grid-column: 2; }
+.present .main-col.with-filter #viewPanel { grid-template-columns: 1fr; max-height: 62vh; overflow-y: auto; }
+@media (max-width: 900px) { .present .main-col.with-filter { grid-template-columns: minmax(0, 1fr); } .present .main-col.with-filter > #viewBar, .present .main-col.with-filter > .stage-wrap, .present .main-col.with-filter > #suppressNote, .present .main-col.with-filter > #emptyHint { grid-column: 1; grid-row: auto; } }
+
+body.leaving .wrap, body.leaving .m-page { opacity: 0; transform: translateY(-6px); transition: opacity .16s ease, transform .16s ease; }

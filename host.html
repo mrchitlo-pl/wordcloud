@@ -43,12 +43,13 @@
           <span id="tagView" class="tag warn" hidden></span>
         </div>
       </div>
-      <div id="viewBar" class="stack" style="gap:10px" hidden>
-        <div class="row" style="justify-content:flex-start; gap:10px; flex-wrap:wrap">
-          <button id="btnFilter" type="button" class="btn" aria-expanded="false" aria-controls="viewPanel">ตัวกรอง</button>
+      <div id="viewBar" class="stack" style="gap:8px" hidden>
+        <div class="row" style="justify-content:flex-start; gap:8px; flex-wrap:wrap">
+          <span class="note" style="font-size:13px">ดูผลตาม</span>
+          <button id="btnFilter" type="button" class="btn" aria-expanded="true" aria-controls="viewPanel">ตัวกรอง</button>
           <button id="btnClearView" type="button" class="btn ghost" hidden>ล้างตัวกรอง</button>
         </div>
-        <div id="viewPanel" class="fieldbox" style="gap:16px" hidden></div>
+        <div id="viewPanel"></div>
       </div>
       <div id="suppressNote" class="notice" role="status" hidden>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5b2a0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none; margin-top:2px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
@@ -64,7 +65,8 @@
       </div>
     </section>
 
-    <aside class="side" aria-label="ตั้งค่า">
+    <aside class="side" id="drawer" aria-label="ตั้งค่า">
+      <div class="drawer-head"><span>ตั้งค่า</span><button type="button" class="btn" id="btnDrawerClose">ปิด</button></div>
       <div class="sec">
         <h2>รูปลักษณ์</h2>
         <div class="stack">
@@ -85,8 +87,8 @@
       </div>
 
       <div class="sec">
-        <h2>ข้อมูลจากผู้ตอบ</h2>
-        <p class="note" style="margin:0">ตั้งหัวข้อได้ตั้งแต่หน้าสร้างกิจกรรม (สูงสุด 5 หัวข้อ) เมื่อมีคำตอบแรกเข้ามา หัวข้อจะล็อกเพื่อให้ข้อมูลสม่ำเสมอ ทุกหัวข้อไม่บังคับกรอก และไม่เก็บชื่อ</p>
+        <h2>ข้อมูลที่อยากถามผู้ตอบ (ไม่บังคับ)</h2>
+        <p class="note" style="margin:0">เช่น ระดับชั้น ตำแหน่ง หน่วยงาน ตั้งได้สูงสุด 5 ข้อ ผู้ตอบข้ามได้ ไม่เก็บชื่อ เมื่อมีคำตอบแรกเข้ามาจะล็อกเพื่อให้ข้อมูลสม่ำเสมอ</p>
         <div id="fieldLock" class="notice" hidden role="status" style="flex-direction:column; align-items:flex-start; gap:10px; padding:14px 16px; font-size:14px">
           <span id="fieldLockText"></span>
           <button type="button" id="btnUnlock" class="btn" style="min-height:40px"></button>
@@ -112,6 +114,8 @@
       <div class="sec">
         <h2>รวมคำที่คล้ายกัน</h2>
         <p class="note" style="margin:0" id="pendNote"></p>
+        <div class="stack" style="gap:8px" id="pairList"></div>
+        <button class="btn accent" id="pairAll" type="button" hidden>รวมทุกคู่ที่เสนอ</button>
         <a class="btn" id="navAnalysis2" href="analysis.html">ไปหน้าวิเคราะห์และรวมคำ</a>
       </div>
     </aside>
@@ -146,6 +150,9 @@
   </div>
 </dialog>
 
+<button id="btnGear" class="gear" type="button" aria-label="เปิดตั้งค่า" aria-expanded="false" aria-controls="drawer">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0a0f0d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+</button>
 <script src="js/config.js"></script>
 <script src="vendor/firebase.bundle.js"></script>
 <script src="vendor/qrcode.js"></script>
