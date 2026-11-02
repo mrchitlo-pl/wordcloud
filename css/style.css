@@ -229,3 +229,5 @@ dialog[open]::backdrop { animation: fadeIn .26s ease; }
 @media (max-width: 900px) { .present .main-col.with-filter { grid-template-columns: minmax(0, 1fr); } .present .main-col.with-filter > #viewBar, .present .main-col.with-filter > .stage-wrap, .present .main-col.with-filter > #suppressNote, .present .main-col.with-filter > #emptyHint { grid-column: 1; grid-row: auto; } }
 
 body.leaving .wrap, body.leaving .m-page { opacity: 0; transform: translateY(-6px); transition: opacity .16s ease, transform .16s ease; }
+
+.credit { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 40px 0 8px; color: var(--muted); font-size: 13px; }
