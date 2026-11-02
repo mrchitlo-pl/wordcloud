@@ -150,3 +150,12 @@ table.t { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-
 
 .present #viewBar .seg-btn { min-height: 48px; font-size: 18px; padding: 0 20px; }
 .present #viewBar .note { font-size: 16px; }
+
+.fchip { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #c5d0d5; background: #fff; font-size: 15px; font-weight: 500; }
+.fchip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.present #viewBar .fchip { min-height: 52px; font-size: 18px; padding: 0 22px; }
+.present #viewBar .label { font-size: 16px; }
+.m-select { width: 100%; min-height: 52px; border: 0; border-radius: 14px; background: var(--soft); padding: 0 16px; font-size: 18px; }
+
+#viewBar { position: relative; }
+#viewPanel { position: absolute; top: 100%; left: 0; margin-top: 8px; width: min(780px, 100%); max-height: 62vh; overflow: auto; z-index: 5; background: #fff; border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(10, 15, 13, .2); }

@@ -9,7 +9,8 @@
   $('#navCloud').href = 'host.html?s=' + encodeURIComponent(sid);
 
   let sess = null, settings = null, answers = [];
-  let fieldIdx = 0, valueIdx = 0, query = '';
+  const sel = {};          // เลือกค่าในตัวกรอง {หัวข้อ: [ค่า]}
+  let lastSig = '', query = '';
   const dirty = {};
   const isDirty = (k) => dirty[k] && Date.now() - dirty[k] < 3000;
   const err = (e) => { console.error(e); alert('บันทึกไม่สำเร็จ: ' + (e && e.message ? e.message : e)); };
@@ -34,43 +35,27 @@
     confirm: 'เสนอทุกคู่ที่ดูใกล้เคียง ไม่รวมจนกว่าจะกดยืนยัน'
   };
 
-  function groupDefs() {
-    const defs = [{ key: null, name: 'ไม่แยก', values: ['ทั้งหมด'] }];
-    (settings.fields || []).filter((f) => f.on).forEach((f) => {
-      defs.push({ key: f.key, name: WC.fieldLabel(f), values: WC.parseList(f.options, 12, 20).concat(['ไม่ได้ตอบ']) });
-    });
-    return defs;
-  }
-
   const pct = (a, b) => (b ? (a / b * 100).toFixed(1) + '%' : '—');
   const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
   function render() {
     WC.applyAccent(settings.tone);
-    $('#qText').textContent = settings.question || '(ยังไม่ได้ตั้งคำถาม)';
 
-    // ตัวกรอง
-    const defs = groupDefs();
-    if (fieldIdx >= defs.length) { fieldIdx = 0; valueIdx = 0; }
-    const def = defs[fieldIdx];
-    if (valueIdx >= def.values.length) valueIdx = 0;
-    WC.seg($('#fieldSeg'), defs.map((d) => d.name), fieldIdx, (i) => { fieldIdx = i; valueIdx = 0; render(); });
-    $('#valueRow').hidden = fieldIdx === 0;
-    $('#minRow').hidden = fieldIdx === 0;
-    if (fieldIdx > 0) {
-      WC.seg($('#valueSeg'), def.values, valueIdx, (i) => { valueIdx = i; render(); });
+    // ตัวกรองซ้อนหลายหัวข้อ: ในหัวข้อเดียวเลือกหลายค่า = หรือ, ข้ามหัวข้อ = และ
+    const defs = WC.fieldDefs(settings);
+    WC.selPrune(defs, sel);
+    $('#filterWrap').hidden = defs.length === 0;
+    if (defs.length) {
+      const sig = JSON.stringify([defs.map((d) => [d.key, d.name, d.values]), sel]);
+      if (sig !== lastSig) { lastSig = sig; WC.filterPanel($('#filterPanel'), defs, sel, () => render()); }
       WC.seg($('#minSeg'), ['ไม่ซ่อน', '3', '5', '10'], [0, 3, 5, 10].indexOf(settings.minGroup), (i) => save({ minGroup: [0, 3, 5, 10][i] }));
+      $('#btnClear').hidden = WC.selCount(sel) === 0;
     }
-    let filterFn = null;
-    if (fieldIdx > 0) {
-      const val = def.values[valueIdx];
-      filterFn = (a) => {
-        const v = a.fields && a.fields[def.key];
-        return val === 'ไม่ได้ตอบ' ? !v : v === val;
-      };
-    }
+    const filterFn = WC.selFilter(defs, sel);
+    const filterLabel = WC.selLabel(defs, sel);
+    $('#qText').textContent = (settings.question || '(ยังไม่ได้ตั้งคำถาม)') + (filterLabel ? '  ·  กำลังดู ' + filterLabel : '');
     const groupAnswers = filterFn ? answers.filter(filterFn) : answers;
-    const suppressed = fieldIdx > 0 && settings.minGroup > 0 && groupAnswers.length < settings.minGroup;
+    const suppressed = !!filterFn && settings.minGroup > 0 && groupAnswers.length < settings.minGroup;
     $('#suppressed').hidden = !suppressed;
     if (suppressed) $('#suppressedText').textContent = 'กลุ่มนี้มี ' + groupAnswers.length + ' คำตอบ น้อยกว่าเกณฑ์ ' + settings.minGroup + ' จึงซ่อนผลไว้ เพื่อกันไม่ให้ระบุได้ว่าใครตอบ';
 
@@ -176,6 +161,7 @@
 
   $('#syn').addEventListener('input', (e) => save({ syn: e.target.value }));
   $('#prot').addEventListener('input', (e) => save({ protectedText: e.target.value }));
+  $('#btnClear').addEventListener('click', () => { Object.keys(sel).forEach((k) => delete sel[k]); lastSig = ''; render(); });
   $('#s').addEventListener('input', (e) => { query = e.target.value; render(); });
   $('#btnCsv').addEventListener('click', () => {
     const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');

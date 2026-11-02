@@ -17,7 +17,8 @@
   let exported = false;
   let lastPublic = '';
   let unlockedFields = false;                 // ปลดล็อกหัวข้อผู้ตอบแล้วหรือยัง
-  let viewField = null, viewValue = 0, lastBarSig = '', lockSig = '';
+  const viewSel = {};                        // ตัวกรองในโหมดนำเสนอ {หัวข้อ: [ค่า]}
+  let viewOpen = false, lockSig = '';
   let curViewLabel = '', curViewTotal = 0;     // ผลที่กำลังแสดง (ใช้ตอนส่งออกภาพ)
   const dirty = {};         // คีย์ที่กำลังแก้ในหน้านี้ กันค่าที่ส่งกลับมาทับ
   const markDirty = (keys) => { keys.forEach((k) => { dirty[k] = Date.now(); }); };
@@ -32,7 +33,7 @@
     fieldsBox: $('#fieldsBox'), fieldNote: $('#fieldNote'),
     modChips: $('#modChips'), removedWrap: $('#removedWrap'), removedChips: $('#removedChips'), blocked: $('#blocked'),
     pendBadge: $('#pendBadge'), pendNote: $('#pendNote'),
-    viewBar: $('#viewBar'), viewField: $('#viewField'), viewValRow: $('#viewValRow'), viewVal: $('#viewVal'),
+    viewBar: $('#viewBar'), viewPanel: $('#viewPanel'),
     tagView: $('#tagView'), suppressNote: $('#suppressNote'), fieldLock: $('#fieldLock')
   };
   const err = (e) => { console.error(e); alert('บันทึกไม่สำเร็จ: ' + (e && e.message ? e.message : e)); };
@@ -67,19 +68,10 @@
   els.togHide.addEventListener('click', () => save({ hideResults: !settings.hideResults }));
   els.togClosed.addEventListener('click', () => save({ closed: !settings.closed }));
 
-  const fieldRows = [];
-  WC.DEFAULT_FIELDS.forEach((f, i) => {
-    const tog = WC.el('button', { type: 'button', class: 'toggle', 'aria-pressed': 'false' });
-    const name = WC.el('input', { type: 'text', class: 'input white', placeholder: 'ชื่อหัวข้อ เช่น ฝ่าย', 'aria-label': 'ชื่อหัวข้อ', maxlength: '30' });
-    const opts = WC.el('input', { type: 'text', class: 'input white', placeholder: 'ตัวเลือก คั่นด้วยจุลภาค', 'aria-label': 'ตัวเลือก', maxlength: '300' });
-    const label = WC.el('span', { text: '' });
-    const box = WC.el('div', { class: 'fieldbox' }, [f.custom ? name : '', opts, WC.el('span', { class: 'note', text: 'ตัวเลือก คั่นด้วยจุลภาค' })].filter(Boolean));
-    const upd = (patch) => save({ fields: settings.fields.map((x, j) => (j === i ? Object.assign({}, x, patch) : x)) });
-    tog.addEventListener('click', () => upd({ on: !settings.fields[i].on }));
-    name.addEventListener('input', () => upd({ label: name.value }));
-    opts.addEventListener('input', () => upd({ options: opts.value }));
-    els.fieldsBox.appendChild(WC.el('div', { class: 'stack', style: 'gap:10px' }, [WC.el('div', { class: 'row' }, [label, tog]), box]));
-    fieldRows.push({ tog: tog, name: name, opts: opts, label: label, box: box });
+  const fieldEd = WC.fieldEditor(els.fieldsBox, {
+    get: () => settings.fields,
+    set: (f) => save({ fields: f }),
+    locked: () => fieldsLocked()
   });
 
   /* ---------- คำนวณ ---------- */
@@ -108,19 +100,7 @@
     WC.setToggle(els.togCounts, settings.showCounts);
     WC.setToggle(els.togHide, settings.hideResults);
     WC.setToggle(els.togClosed, settings.closed);
-    settings.fields.forEach((f, i) => {
-      const r = fieldRows[i];
-      r.label.textContent = WC.fieldLabel(f);
-      WC.setToggle(r.tog, f.on);
-      r.tog.setAttribute('aria-label', 'เปิดหัวข้อ ' + WC.fieldLabel(f));
-      r.box.hidden = !f.on;
-      if (r.name) setIfIdle(r.name, f.label || '');
-      setIfIdle(r.opts, f.options || '');
-      const lk = fieldsLocked();
-      r.tog.disabled = lk;
-      if (r.name) r.name.disabled = lk;
-      r.opts.disabled = lk;
-    });
+    fieldEd.sync();
     const hasAns = answers.length > 0;
     els.fieldLock.hidden = !hasAns;
     if (hasAns) {
@@ -130,10 +110,10 @@
         : 'ปลดล็อกอยู่ คำตอบที่ส่งมาแล้วจะไม่มีข้อมูลของหัวข้อที่เพิ่มใหม่';
       $('#btnUnlock').textContent = lk ? 'ปลดล็อก…' : 'ล็อกกลับ';
     }
-    const on = settings.fields.filter((f) => f.on);
-    els.fieldNote.textContent = on.length === 0
+    const pubF = WC.publicFields(settings.fields);
+    els.fieldNote.textContent = pubF.length === 0
       ? 'ตอนนี้ผู้ตอบจะเห็นแค่ช่องใส่คำ'
-      : 'ผู้ตอบจะเห็น ' + on.length + ' หัวข้อ: ' + on.map(WC.fieldLabel).join(', ');
+      : 'ผู้ตอบจะเห็น ' + pubF.length + ' หัวข้อ: ' + pubF.map((f) => f.label).join(', ');
     els.tagClosed.hidden = !settings.closed;
     els.tagHidden.hidden = !settings.hideResults;
   }
@@ -142,12 +122,12 @@
     const live = compute(answers);
     const present = document.body.classList.contains('present');
     const defs = WC.fieldDefs(settings);
-    if (viewField != null && !defs[viewField]) { viewField = null; viewValue = 0; }
+    WC.selPrune(defs, viewSel);
     const src = frozen || answers;
     let filterFn = null, viewLabel = '';
-    if (present && viewField != null) {
-      filterFn = WC.fieldFilter(defs[viewField], viewValue);
-      viewLabel = defs[viewField].name + ': ' + defs[viewField].values[viewValue];
+    if (present) {
+      filterFn = WC.selFilter(defs, viewSel);
+      viewLabel = WC.selLabel(defs, viewSel);
     }
     const filtered = filterFn ? src.filter(filterFn) : src;
     const suppressed = !!filterFn && settings.minGroup > 0 && filtered.length < settings.minGroup;
@@ -155,11 +135,12 @@
     const view = suppressed
       ? { ms: { eff: [], pairs: [], merges: {}, resolve: (x) => x }, total: 0 }
       : (filterFn ? compute(filtered) : (frozen ? frozenAll : live));
-    renderViewBar(defs, present);
+    renderViewBar(defs, present, viewLabel);
     els.suppressNote.hidden = !suppressed;
     if (suppressed) els.suppressNote.querySelector('span').textContent = 'กลุ่มนี้มี ' + filtered.length + ' คำตอบ น้อยกว่าเกณฑ์ ' + settings.minGroup + ' จึงซ่อนผลไว้ เพื่อกันไม่ให้ระบุได้ว่าใครตอบ (ปรับเกณฑ์ได้ในหน้าวิเคราะห์)';
     els.tagView.hidden = !filterFn;
     els.tagView.textContent = 'กำลังดู: ' + viewLabel;
+    els.tagView.style.whiteSpace = 'normal';
     curViewLabel = viewLabel;
     curViewTotal = view.total;
     const maxN = WC.MAXES[settings.maxIdx][1];
@@ -213,20 +194,25 @@
     pushPublic(live);
   }
 
-  function renderViewBar(defs, present) {
+  let lastBarSig = '';
+  function renderViewBar(defs, present, label) {
     const show = present && defs.length > 0;
     els.viewBar.hidden = !show;
     if (!show) return;
-    const sig = JSON.stringify([defs.map((d) => [d.name, d.values]), viewField, viewValue]);
+    const n = WC.selCount(viewSel);
+    $('#btnFilter').textContent = 'ตัวกรอง' + (n ? ' (' + n + ')' : '') + (viewOpen ? ' ▴' : ' ▾');
+    $('#btnFilter').setAttribute('aria-expanded', String(viewOpen));
+    $('#btnClearView').hidden = n === 0;
+    els.viewPanel.hidden = !viewOpen;
+    if (!viewOpen) { lastBarSig = ''; return; }
+    const sig = JSON.stringify([defs.map((d) => [d.key, d.name, d.values]), viewSel]);
     if (sig === lastBarSig) return;
     lastBarSig = sig;
-    WC.seg(els.viewField, ['ทั้งหมด'].concat(defs.map((d) => d.name)), viewField == null ? 0 : viewField + 1, (i) => {
-      viewField = i === 0 ? null : i - 1;
-      viewValue = 0;
-      renderCloud();
-    });
-    els.viewValRow.hidden = viewField == null;
-    if (viewField != null) WC.seg(els.viewVal, defs[viewField].values, viewValue, (i) => { viewValue = i; renderCloud(); });
+    WC.filterPanel(els.viewPanel, defs, viewSel, () => { renderCloud(); });
+    els.viewPanel.appendChild(WC.el('button', {
+      type: 'button', class: 'btn primary', style: 'align-self:flex-start', text: 'เสร็จ',
+      onclick: () => { viewOpen = false; lastBarSig = ''; renderCloud(); }
+    }));
   }
 
   function render() { renderPanel(); renderCloud(); }
@@ -277,9 +263,11 @@
     document.body.classList.toggle('present', on);
     btnPresent.setAttribute('aria-pressed', String(on));
     btnPresent.textContent = on ? 'ออกจากโหมดนำเสนอ' : 'โหมดนำเสนอ';
-    if (!on) { viewField = null; viewValue = 0; lastBarSig = ''; }
+    if (!on) { Object.keys(viewSel).forEach((k) => delete viewSel[k]); viewOpen = false; lastBarSig = ''; }
     setTimeout(() => { autosize(); renderCloud(); }, 60);
   });
+  $('#btnFilter').addEventListener('click', () => { viewOpen = !viewOpen; lastBarSig = ''; renderCloud(); setTimeout(renderCloud, 80); });
+  $('#btnClearView').addEventListener('click', () => { Object.keys(viewSel).forEach((k) => delete viewSel[k]); lastBarSig = ''; renderCloud(); });
   const btnPause = $('#btnPause');
   btnPause.addEventListener('click', () => {
     frozen = frozen ? null : answers.slice();
@@ -335,7 +323,7 @@
     const remote = s.settings || {};
     if (!settings) settings = Object.assign(WC.defaultSettings(''), remote);
     else Object.keys(remote).forEach((k) => { if (!isDirty(k)) settings[k] = remote[k]; });
-    settings.fields = settings.fields && settings.fields.length === 4 ? settings.fields : WC.DEFAULT_FIELDS.map((f) => Object.assign({}, f));
+    settings.fields = WC.normFields(settings.fields);
     if (els.boot) { els.boot.remove(); els.boot = null; els.app.hidden = false; renderJoin(); }
     render();
   }, (e) => { console.error(e); els.boot && (els.boot.textContent = 'โหลดกิจกรรมไม่ได้: ' + e.message); });

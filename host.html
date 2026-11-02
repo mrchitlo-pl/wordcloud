@@ -43,9 +43,12 @@
           <span id="tagView" class="tag warn" hidden></span>
         </div>
       </div>
-      <div id="viewBar" class="stack" style="gap:8px" hidden>
-        <div class="row wrap-r" style="justify-content:flex-start; gap:8px 12px"><span class="note">ดูผลตาม</span><div class="seg" id="viewField"></div></div>
-        <div class="row wrap-r" id="viewValRow" style="justify-content:flex-start" hidden><div class="seg" id="viewVal"></div></div>
+      <div id="viewBar" class="stack" style="gap:10px" hidden>
+        <div class="row" style="justify-content:flex-start; gap:10px; flex-wrap:wrap">
+          <button id="btnFilter" type="button" class="btn" aria-expanded="false" aria-controls="viewPanel">ตัวกรอง</button>
+          <button id="btnClearView" type="button" class="btn ghost" hidden>ล้างตัวกรอง</button>
+        </div>
+        <div id="viewPanel" class="fieldbox" style="gap:16px" hidden></div>
       </div>
       <div id="suppressNote" class="notice" role="status" hidden>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5b2a0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none; margin-top:2px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
@@ -83,7 +86,7 @@
 
       <div class="sec">
         <h2>ข้อมูลจากผู้ตอบ</h2>
-        <p class="note" style="margin:0">หัวข้อตั้งได้ตั้งแต่หน้าสร้างกิจกรรม เมื่อมีคำตอบแรกเข้ามา หัวข้อจะล็อกเพื่อให้ข้อมูลสม่ำเสมอ ทุกหัวข้อไม่บังคับกรอก และไม่เก็บชื่อ</p>
+        <p class="note" style="margin:0">ตั้งหัวข้อได้ตั้งแต่หน้าสร้างกิจกรรม (สูงสุด 5 หัวข้อ) เมื่อมีคำตอบแรกเข้ามา หัวข้อจะล็อกเพื่อให้ข้อมูลสม่ำเสมอ ทุกหัวข้อไม่บังคับกรอก และไม่เก็บชื่อ</p>
         <div id="fieldLock" class="notice" hidden role="status" style="flex-direction:column; align-items:flex-start; gap:10px; padding:14px 16px; font-size:14px">
           <span id="fieldLockText"></span>
           <button type="button" id="btnUnlock" class="btn" style="min-height:40px"></button>

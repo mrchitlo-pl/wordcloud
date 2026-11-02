@@ -28,12 +28,16 @@
       <h1 style="margin:0; font-size:clamp(28px,4vw,40px); letter-spacing:-0.5px">วิเคราะห์ผล</h1>
       <div class="stats"><span id="qText"></span></div>
     </div>
-    <div class="stack" style="align-items:flex-end; gap:10px">
-      <div class="row wrap-r" style="gap:8px 12px; justify-content:flex-end"><span class="note">ดูตาม</span><div class="seg" id="fieldSeg"></div></div>
-      <div class="row wrap-r" id="valueRow" style="gap:8px 12px; justify-content:flex-end" hidden><div class="seg" id="valueSeg"></div></div>
-      <div class="row wrap-r" id="minRow" style="gap:8px 12px; justify-content:flex-end" hidden><span class="note">ซ่อนกลุ่มที่มีน้อยกว่า (คำตอบ)</span><div class="seg" id="minSeg"></div></div>
-    </div>
   </div>
+
+  <section id="filterWrap" class="fieldbox" style="gap:16px" hidden aria-label="ตัวกรอง">
+    <div class="row wrap-r">
+      <span class="label">ตัวกรอง · เลือกได้หลายหัวข้อพร้อมกัน (ข้ามหัวข้อ = และ, หลายค่าในหัวข้อเดียว = หรือ)</span>
+      <button id="btnClear" type="button" class="btn ghost" hidden>ล้างตัวกรอง</button>
+    </div>
+    <div id="filterPanel" class="stack" style="gap:16px"></div>
+    <div class="row wrap-r" style="justify-content:flex-start; gap:8px 12px"><span class="note">ซ่อนกลุ่มที่มีน้อยกว่า (คำตอบ)</span><div class="seg" id="minSeg"></div></div>
+  </section>
 
   <div id="suppressed" class="notice" role="status" hidden>
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5b2a0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none; margin-top:2px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>

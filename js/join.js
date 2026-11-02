@@ -74,14 +74,24 @@
     const fbox = $('#fields');
     fbox.replaceChildren();
     fields.forEach((f) => {
-      const row = WC.el('div', { class: 'chips', style: 'gap:8px' });
-      (f.options || []).forEach((o) => {
-        row.appendChild(WC.el('button', {
-          type: 'button', class: 'm-chip', text: o, 'aria-pressed': sel[f.key] === o ? 'true' : 'false',
-          onclick: () => { sel[f.key] = sel[f.key] === o ? null : o; renderEdit(); }
-        }));
-      });
-      fbox.appendChild(WC.el('div', { class: 'stack', style: 'gap:10px' }, [WC.el('div', { text: f.label, style: 'font-weight:500' }), row]));
+      let control;
+      if ((f.options || []).length > 8) {
+        // ตัวเลือกเยอะ: ใช้รายการเลื่อนเลือก อ่านง่ายกว่าบนมือถือ
+        control = WC.el('select', { class: 'm-select', 'aria-label': f.label });
+        control.appendChild(WC.el('option', { value: '', text: '— เลือก —' }));
+        f.options.forEach((o) => control.appendChild(WC.el('option', { value: o, text: o })));
+        control.value = sel[f.key] || '';
+        control.addEventListener('change', () => { sel[f.key] = control.value || null; });
+      } else {
+        control = WC.el('div', { class: 'chips', style: 'gap:8px' });
+        (f.options || []).forEach((o) => {
+          control.appendChild(WC.el('button', {
+            type: 'button', class: 'm-chip', text: o, 'aria-pressed': sel[f.key] === o ? 'true' : 'false',
+            onclick: () => { sel[f.key] = sel[f.key] === o ? null : o; renderEdit(); }
+          }));
+        });
+      }
+      fbox.appendChild(WC.el('div', { class: 'stack', style: 'gap:10px' }, [WC.el('div', { text: f.label, style: 'font-weight:500' }), control]));
     });
   }
 

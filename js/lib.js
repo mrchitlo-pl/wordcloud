@@ -31,25 +31,53 @@
     return dark ? { a: t.d[0], m: t.d[1], l: t.d[2] } : { a: t.accent, m: t.mid, l: t.low };
   };
 
-  WC.DEFAULT_FIELDS = [
-    { key: 'level', label: 'ระดับชั้น', on: false, options: 'ม.1, ม.2, ม.3, ม.4, ม.5, ม.6', custom: false },
-    { key: 'room', label: 'ห้อง / กลุ่ม', on: false, options: 'ห้อง 1, ห้อง 2, ห้อง 3, ห้อง 4', custom: false },
-    { key: 'gender', label: 'เพศ', on: false, options: 'ชาย, หญิง, อื่นๆ, ไม่ระบุ', custom: false },
-    { key: 'custom', label: '', on: false, options: 'ตัวเลือก 1, ตัวเลือก 2', custom: true }
+  /* ---------- หัวข้อข้อมูลผู้ตอบ ---------- */
+  WC.MAX_FIELDS = 5;      // หัวข้อสูงสุดต่อกิจกรรม
+  WC.MAX_OPTIONS = 30;    // ตัวเลือกสูงสุดต่อหัวข้อ
+  WC.MAX_OPT_LEN = 30;    // ความยาวตัวเลือก
+  WC.MISSING = 'ไม่ได้ตอบ'; // ค่าแทนผู้ที่ไม่ได้เลือกหัวข้อนั้น
+
+  // ชุดเริ่มต้น (แก้ไข เพิ่ม ลบ ได้ทั้งหมดหลังเลือก)
+  WC.PRESETS = [
+    { name: 'ห้องเรียน', fields: [
+      { label: 'ระดับชั้น', options: 'ม.1, ม.2, ม.3, ม.4, ม.5, ม.6' },
+      { label: 'ห้อง', options: 'ห้อง 1, ห้อง 2, ห้อง 3, ห้อง 4, ห้อง 5, ห้อง 6' },
+      { label: 'เพศ', options: 'ชาย, หญิง, อื่นๆ' }] },
+    { name: 'อบรม/สัมมนา', fields: [
+      { label: 'หน่วยงาน', options: 'หน่วยงาน 1, หน่วยงาน 2, หน่วยงาน 3' },
+      { label: 'ตำแหน่ง', options: 'ผู้บริหาร, ครู, เจ้าหน้าที่, อื่นๆ' },
+      { label: 'ประสบการณ์', options: 'น้อยกว่า 5 ปี, 5-10 ปี, 11-20 ปี, มากกว่า 20 ปี' },
+      { label: 'ครั้งที่เข้าร่วม', options: 'ครั้งแรก, เคยเข้าร่วมแล้ว' }] },
+    { name: 'ก่อน-หลัง', fields: [
+      { label: 'ช่วง', options: 'ก่อนเรียน, หลังเรียน' },
+      { label: 'ห้อง', options: 'ห้อง 1, ห้อง 2, ห้อง 3, ห้อง 4' }] },
+    { name: 'สะท้อนผู้สอน', fields: [
+      { label: 'รอบ/วัน', options: 'รอบ 1, รอบ 2, รอบ 3' },
+      { label: 'กลุ่ม', options: 'กลุ่ม A, กลุ่ม B, กลุ่ม C' }] },
+    { name: 'ว่าง', fields: [] }
   ];
+  WC.newKey = function (taken) {
+    let k;
+    do { k = 'f' + Math.random().toString(36).slice(2, 6); } while (taken && taken.indexOf(k) >= 0);
+    return k;
+  };
+  WC.presetFields = function (preset) {
+    const keys = [];
+    return preset.fields.map((f) => { const k = WC.newKey(keys); keys.push(k); return { key: k, label: f.label, options: f.options }; });
+  };
 
   WC.defaultSettings = function (question) {
     return {
       question: question || '',
       tone: 0, dark: false, sizeIdx: 1, maxIdx: 0, showCounts: false,
       hideResults: false, closed: false, limit: 3,
-      fields: WC.DEFAULT_FIELDS.map((f) => Object.assign({}, f)),
+      fields: [],
       removed: [], blocked: '',
-      mode: 'confirm', protectedText: '', syn: 'ไว้ใจ=เชื่อใจ', decisions: {}, minGroup: 5
+      mode: 'confirm', protectedText: '', syn: 'ไว้ใจ=เชื่อใจ', decisions: {}, minGroup: 0
     };
   };
 
-  WC.fieldLabel = (f) => (f.custom ? (f.label.trim() === '' ? 'หัวข้อของคุณเอง' : f.label.trim()) : f.label);
+  WC.fieldLabel = (f) => (String(f.label || '').trim() || (f.custom ? 'หัวข้อของคุณเอง' : 'หัวข้อ'));
   WC.parseList = function (text, maxItems, maxLen) {
     return String(text || '')
       .split(/[,，、\n]/)
@@ -57,24 +85,132 @@
       .filter((x, i, a) => x.length > 0 && a.indexOf(x) === i)
       .slice(0, maxItems || 12);
   };
-  // ส่วนของหัวข้อที่เปิด สำหรับส่งให้ผู้ตอบ
+  const parseOpts = (t) => WC.parseList(t, WC.MAX_OPTIONS, WC.MAX_OPT_LEN);
+  WC.parseOpts = parseOpts;
+
+  // รับรูปแบบเก่า (มี on/custom) หรือใหม่ -> [{key,label,options}] เฉพาะหัวข้อที่ใช้อยู่
+  WC.normFields = function (fields) {
+    return (fields || [])
+      .filter((f) => f && (f.on === undefined || f.on === true))
+      .map((f) => ({ key: f.key, label: f.on === undefined ? String(f.label || '') : WC.fieldLabel(f), options: String(f.options || '') }))
+      .slice(0, WC.MAX_FIELDS);
+  };
+  // สำหรับส่งให้ผู้ตอบ (ตัดหัวข้อที่ไม่มีตัวเลือก)
   WC.publicFields = function (fields) {
-    return (fields || []).filter((f) => f.on)
-      .map((f) => ({ key: f.key, label: WC.fieldLabel(f), options: WC.parseList(f.options, 12, 20) }))
+    return WC.normFields(fields)
+      .map((f) => ({ key: f.key, label: String(f.label || '').trim() || 'หัวข้อ', options: parseOpts(f.options) }))
       .filter((f) => f.options.length > 0);
   };
-  // หัวข้อที่เปิดอยู่ + ค่าที่เลือกดูได้ (ใช้กรองผลในหน้านำเสนอและหน้าวิเคราะห์)
+
+  /* ---------- ตัวกรองซ้อนหลายหัวข้อ ---------- */
+  // defs: [{key,name,values[]}] ; sel: {key: [ค่าที่เลือก]} ภายในหัวข้อเดียว = "หรือ" ข้ามหัวข้อ = "และ"
   WC.fieldDefs = function (settings) {
-    return (settings.fields || []).filter((f) => f.on).map((f) => ({
-      key: f.key, name: WC.fieldLabel(f),
-      values: WC.parseList(f.options, 12, 20).concat(['ไม่ได้ตอบ'])
-    })).filter((d) => d.values.length > 1);
+    return WC.publicFields(settings.fields).map((f) => ({ key: f.key, name: f.label, values: f.options.concat([WC.MISSING]) }));
   };
-  WC.fieldFilter = function (def, vi) {
-    const val = def.values[vi];
-    return (a) => {
-      const v = a.fields && a.fields[def.key];
-      return val === 'ไม่ได้ตอบ' ? !v : v === val;
+  WC.selPrune = function (defs, sel) {
+    Object.keys(sel).forEach((k) => {
+      const d = defs.find((x) => x.key === k);
+      if (!d) { delete sel[k]; return; }
+      sel[k] = sel[k].filter((v) => d.values.indexOf(v) >= 0);
+      if (!sel[k].length) delete sel[k];
+    });
+  };
+  WC.selFilter = function (defs, sel) {
+    const act = defs.filter((d) => sel[d.key] && sel[d.key].length);
+    if (!act.length) return null;
+    return (a) => act.every((d) => {
+      const v = a.fields && a.fields[d.key];
+      return sel[d.key].some((x) => (x === WC.MISSING ? !v : v === x));
+    });
+  };
+  WC.selLabel = (defs, sel) => defs.filter((d) => sel[d.key] && sel[d.key].length).map((d) => d.name + ': ' + sel[d.key].join(' หรือ ')).join(' · ');
+  WC.selCount = (sel) => Object.keys(sel).filter((k) => sel[k] && sel[k].length).length;
+  WC.filterPanel = function (container, defs, sel, onChange) {
+    container.replaceChildren();
+    defs.forEach((d) => {
+      const cur = sel[d.key] || [];
+      const row = WC.el('div', { class: 'chips', style: 'gap:8px' });
+      row.appendChild(WC.el('button', {
+        type: 'button', class: 'fchip', text: 'ทั้งหมด', 'aria-pressed': cur.length === 0 ? 'true' : 'false',
+        onclick: () => { delete sel[d.key]; onChange(); }
+      }));
+      d.values.forEach((v) => {
+        row.appendChild(WC.el('button', {
+          type: 'button', class: 'fchip', text: v, 'aria-pressed': cur.indexOf(v) >= 0 ? 'true' : 'false',
+          onclick: () => {
+            const c = (sel[d.key] || []).slice();
+            const i = c.indexOf(v);
+            if (i >= 0) c.splice(i, 1); else c.push(v);
+            if (c.length) sel[d.key] = c; else delete sel[d.key];
+            onChange();
+          }
+        }));
+      });
+      container.appendChild(WC.el('div', { class: 'stack', style: 'gap:8px' }, [WC.el('div', { class: 'label', text: d.name }), row]));
+    });
+  };
+
+  /* ---------- ตัวแก้หัวข้อ (ใช้ทั้งหน้าสร้างกิจกรรมและหน้าก้อนเมฆ) ---------- */
+  // api: { get(): fields[], set(fields[]), locked(): boolean }
+  WC.fieldEditor = function (container, api) {
+    let sig = null;
+    const rows = [];
+    function build(fields, locked) {
+      container.replaceChildren();
+      rows.length = 0;
+      if (!locked) {
+        const pr = WC.el('div', { class: 'stack', style: 'gap:8px' }, [WC.el('div', { class: 'label', text: 'เริ่มจากชุดสำเร็จรูป (แก้ได้ทั้งหมดหลังเลือก)' })]);
+        const chips = WC.el('div', { class: 'chips', style: 'gap:8px' });
+        WC.PRESETS.forEach((p) => chips.appendChild(WC.el('button', {
+          type: 'button', class: 'chip', text: p.name,
+          onclick: () => {
+            if (api.get().length && !confirm('แทนที่หัวข้อที่ตั้งไว้ด้วยชุด "' + p.name + '"?')) return;
+            api.set(WC.presetFields(p));
+          }
+        })));
+        pr.appendChild(chips);
+        container.appendChild(pr);
+      }
+      if (fields.length === 0) container.appendChild(WC.el('p', { class: 'note', style: 'margin:0', text: 'ยังไม่มีหัวข้อ ผู้ตอบจะเห็นแค่ช่องใส่คำ' }));
+      fields.forEach((f, i) => {
+        const upd = (patch) => api.set(api.get().map((x, j) => (j === i ? Object.assign({}, x, patch) : x)));
+        const name = WC.el('input', { type: 'text', class: 'input white', placeholder: 'ชื่อหัวข้อ เช่น ตำแหน่ง', 'aria-label': 'ชื่อหัวข้อที่ ' + (i + 1), maxlength: '30', value: f.label });
+        const opts = WC.el('input', { type: 'text', class: 'input white', placeholder: 'ตัวเลือก คั่นด้วยจุลภาค', 'aria-label': 'ตัวเลือกของหัวข้อที่ ' + (i + 1), value: f.options });
+        name.addEventListener('input', () => upd({ label: name.value }));
+        opts.addEventListener('input', () => upd({ options: opts.value }));
+        if (locked) { name.disabled = true; opts.disabled = true; }
+        const kids = [name, opts, WC.el('span', { class: 'note', text: 'ตัวเลือกคั่นด้วยจุลภาค (สูงสุด ' + WC.MAX_OPTIONS + ' ข้อ)' })];
+        if (!locked) kids.push(WC.el('button', {
+          type: 'button', class: 'btn ghost', style: 'align-self:flex-start; min-height:40px; padding:0 8px; color:var(--danger)', text: 'ลบหัวข้อนี้',
+          'aria-label': 'ลบหัวข้อที่ ' + (i + 1),
+          onclick: () => api.set(api.get().filter((x, j) => j !== i))
+        }));
+        container.appendChild(WC.el('div', { class: 'fieldbox' }, kids));
+        rows.push({ name: name, opts: opts });
+      });
+      if (!locked) {
+        const add = WC.el('button', {
+          type: 'button', class: 'btn', text: '+ เพิ่มหัวข้อ', style: 'align-self:flex-start',
+          onclick: () => {
+            const cur = api.get();
+            api.set(cur.concat([{ key: WC.newKey(cur.map((x) => x.key)), label: '', options: '' }]));
+          }
+        });
+        if (fields.length >= WC.MAX_FIELDS) { add.disabled = true; add.textContent = 'ครบ ' + WC.MAX_FIELDS + ' หัวข้อแล้ว'; }
+        container.appendChild(add);
+      }
+    }
+    return {
+      sync: function () {
+        const fields = api.get();
+        const locked = api.locked();
+        const s = fields.map((f) => f.key).join(',') + '|' + locked;
+        if (s !== sig) { sig = s; build(fields, locked); return; }
+        rows.forEach((r, i) => {
+          if (document.activeElement !== r.name && r.name.value !== fields[i].label) r.name.value = fields[i].label;
+          if (document.activeElement !== r.opts && r.opts.value !== fields[i].options) r.opts.value = fields[i].options;
+        });
+      }
     };
   };
 
@@ -319,8 +455,8 @@
   WC.answersCsv = function (answers, settings, code) {
     const items = WC.buildItems(answers, settings);
     const ms = WC.mergeState(items, settings);
-    const fields = (settings.fields || []).filter((f) => f.on);
-    const header = ['เวลา', 'รหัสผู้ตอบ(นิรนาม)', 'คำที่พิมพ์', 'คำหลังล้างข้อความ', 'คำหลังรวม', 'ถูกซ่อน'].concat(fields.map(WC.fieldLabel));
+    const fields = WC.normFields(settings.fields);
+    const header = ['เวลา', 'รหัสผู้ตอบ(นิรนาม)', 'คำที่พิมพ์', 'คำหลังล้างข้อความ', 'คำหลังรวม', 'ถูกซ่อน'].concat(fields.map((f) => String(f.label || '').trim() || 'หัวข้อ'));
     const removed = new Set((settings.removed || []).map(WC.normalize));
     const blocked = WC.parseList(settings.blocked, 100, 30).map(WC.normalize);
     const rows = answers
